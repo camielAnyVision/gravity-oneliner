@@ -49,7 +49,7 @@ echo "" | tee -a ${BASEDIR}/gravity-installer.log
 
 
 if [ -x "$(command -v curl)" ] && [ -x "$(command -v ansible)" ]; then
-    continue
+    true
 else
     if [ -x "$(command -v apt-get)" ]; then
         set -e
@@ -73,10 +73,11 @@ else
 fi
 
 rm -rf /opt/anv-gravity
+set -e
 mkdir -p /opt/anv-gravity/ansible/roles
 cd /opt/anv-gravity/ansible/roles
-curl -o ansible-role-nvidia-driver.tar.gz https://github.com/NVIDIA/ansible-role-nvidia-driver/archive/v1.1.0.tar.gz
-tar xfz ansible-role-nvidia-driver.tar.gz
+curl -fsSLo ansible-role-nvidia-driver.tar.gz https://github.com/NVIDIA/ansible-role-nvidia-driver/archive/v1.1.0.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
+tar xfz ansible-role-nvidia-driver.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
 rm -f ansible-role-nvidia-driver.tar.gz
 mv ansible-role-nvidia-driver* nvidia-driver
 cd /opt/anv-gravity/ansible
@@ -102,9 +103,10 @@ cat <<EOF > main.yml
     #- { role: os_config, tags: ["os"] }
     - { role: nvidia-driver, tags: ["nvidia-driver"], when: "(((nvidia_device_lspci is defined) and (nvidia_device_lspci.stdout.find('NVIDIA') != -1)) or ((nvidia_device_lshw is defined) and (nvidia_device_lshw.stdout.find('NVIDIA') != -1)))" }
 EOF
+set +e
 
 ## Install nvidia-driver
-ansible-playbook --become --become-user=root main.yml -vv | tee -a ${BASEDIR}/gravity-installer.log
+ansible-playbook --become --become-user=root main.yml -vvv >> ${BASEDIR}/gravity-installer.log
 if [ $? != 0 ]; then
     echo "" | tee -a ${BASEDIR}/gravity-installer.log
     echo "Installation failed, please contact support." | tee -a ${BASEDIR}/gravity-installer.log
@@ -113,6 +115,13 @@ fi
 
 ## Install gravity
 cd /opt/anv-gravity
-curl -o anv-base-k8s-1.0.0.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/anv-base-k8s-1.0.0.tar
-tar xf anv-base-k8s-1.0.0.tar
+echo "" | tee -a ${BASEDIR}/gravity-installer.log
+echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
+echo "==               Downloading Gravity, please wait...               ==" | tee -a ${BASEDIR}/gravity-installer.log
+echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
+echo "" | tee -a ${BASEDIR}/gravity-installer.log
+set -e
+curl -fSLo anv-base-k8s-1.0.0.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/anv-base-k8s-1.0.0.tar | tee -a ${BASEDIR}/gravity-installer.log
+tar xf anv-base-k8s-1.0.0.tar | tee -a ${BASEDIR}/gravity-installer.log
 ./gravity install | tee -a ${BASEDIR}/gravity-installer.log
+set +e
