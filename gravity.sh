@@ -55,19 +55,19 @@ else
         set -e
         apt-get -qq update > /dev/null
         apt-get -qq install -y --no-install-recommends curl software-properties-common > /dev/null
-	apt-add-repository --yes --update ppa:ansible/ansible
-	apt-get -qq install -y ansible
+	apt-add-repository --yes --update ppa:ansible/ansible > /dev/null
+	apt-get -qq install -y ansible > /dev/null
         set +e
     elif [ -x "$(command -v yum)" ]; then
         set -e
-        yum install -y curl
-        curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-        rpm -ivh epel-release-latest-7.noarch.rpm
-        yum install -y epel-release
-        yum install -y python python-pip
-        pip install --upgrade pip
-        pip install markupsafe xmltodict pywinrm
-        yum install -y ansible
+        yum install -y curl > /dev/null
+        curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm > /dev/null
+        rpm -ivh epel-release-latest-7.noarch.rpm > /dev/null
+        yum install -y epel-release > /dev/null
+        yum install -y python python-pip > /dev/null
+        pip install --upgrade pip > /dev/null
+        pip install markupsafe xmltodict pywinrm > /dev/null
+        yum install -y ansible > /dev/null
         set +e
     fi
 fi
@@ -106,7 +106,7 @@ EOF
 set +e
 
 ## Install nvidia-driver
-ansible-playbook --become --become-user=root main.yml -vvv >> ${BASEDIR}/gravity-installer.log
+ansible-playbook --become --become-user=root main.yml -vv | tee -a ${BASEDIR}/gravity-installer.log
 if [ $? != 0 ]; then
     echo "" | tee -a ${BASEDIR}/gravity-installer.log
     echo "Installation failed, please contact support." | tee -a ${BASEDIR}/gravity-installer.log
@@ -131,4 +131,3 @@ tar xf anv-base-k8s-1.0.0.tar | tee -a ${BASEDIR}/gravity-installer.log
 	--cluster=cluster.local \
 	--flavor=aio \
 	--role=aio | tee -a ${BASEDIR}/gravity-installer.log
-set +e
