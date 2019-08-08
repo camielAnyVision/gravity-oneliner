@@ -123,5 +123,12 @@ echo "" | tee -a ${BASEDIR}/gravity-installer.log
 set -e
 curl -fSLo anv-base-k8s-1.0.0.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/anv-base-k8s-1.0.0.tar | tee -a ${BASEDIR}/gravity-installer.log
 tar xf anv-base-k8s-1.0.0.tar | tee -a ${BASEDIR}/gravity-installer.log
-./gravity install | tee -a ${BASEDIR}/gravity-installer.log
+./gravity install \
+	--cloud-provider=generic \
+	--pod-network-cidr="10.244.0.0/16" \
+	--service-cidr="10.100.0.0/16" \
+	--vxlan-port=8472 \
+	--cluster=cluster.local \
+	--flavor=aio \
+	--role=aio | tee -a ${BASEDIR}/gravity-installer.log
 set +e
