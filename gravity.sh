@@ -138,3 +138,17 @@ tar xf anv-base-k8s-1.0.0.tar | tee -a ${BASEDIR}/gravity-installer.log
 	--cluster=cluster.local \
 	--flavor=aio \
 	--role=aio | tee -a ${BASEDIR}/gravity-installer.log
+
+## Provision a cluster admin user
+cat <<EOF > admin.yaml
+---
+kind: user
+version: v2
+metadata:
+  name: "admin@example.com"
+spec:
+  type: "admin"
+  password: "Passw0rd!"
+  roles: ["@teleadmin"]
+EOF
+gravity resource create admin.yaml
