@@ -43,7 +43,7 @@ fi
 
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
-echo "== Making sure that all dependencies are installed, please wait... ==" | tee -a ${BASEDIR}/gravity-installer.log
+echo "==             Installing dependencies, please wait...             ==" | tee -a ${BASEDIR}/gravity-installer.log
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 
@@ -105,6 +105,13 @@ cat <<EOF > main.yml
 EOF
 set +e
 
+
+echo "" | tee -a ${BASEDIR}/gravity-installer.log
+echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
+echo "==             Installing NVIDIA Driver, please wait...            ==" | tee -a ${BASEDIR}/gravity-installer.log
+echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
+echo "" | tee -a ${BASEDIR}/gravity-installer.log
+
 ## Install nvidia-driver
 ansible-playbook --become --become-user=root main.yml -vv | tee -a ${BASEDIR}/gravity-installer.log
 if [ $? != 0 ]; then
@@ -117,7 +124,7 @@ fi
 cd /opt/anv-gravity
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
-echo "==               Downloading Gravity, please wait...               ==" | tee -a ${BASEDIR}/gravity-installer.log
+echo "==                Installing Gravity, please wait...               ==" | tee -a ${BASEDIR}/gravity-installer.log
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 set -e
