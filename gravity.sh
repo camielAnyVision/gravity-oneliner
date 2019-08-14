@@ -62,10 +62,8 @@ else
         set -e
         yum install -y curl > /dev/null
         curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm > /dev/null
-        set +e
-	rpm -ivh epel-release-latest-7.noarch.rpm > /dev/null
+	rpm -ivh epel-release-latest-7.noarch.rpm || true > /dev/null
         yum install -y epel-release > /dev/null
-	set -e
         yum install -y python python-pip > /dev/null
         pip install --upgrade pip > /dev/null
         pip install markupsafe xmltodict pywinrm > /dev/null
