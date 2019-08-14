@@ -66,7 +66,7 @@ else
         yum install -y epel-release > /dev/null
         yum install -y python python-pip > /dev/null
         pip install --upgrade pip > /dev/null
-        pip install markupsafe xmltodict pywinrm > /dev/null
+        #pip install markupsafe xmltodict pywinrm > /dev/null
         yum install -y ansible > /dev/null
         set +e
     fi
