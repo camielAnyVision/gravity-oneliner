@@ -87,8 +87,7 @@ cat <<EOF > main.yml
   gather_facts: true
   become: yes
   vars:
-    nvidia_driver_package_version: "418.67-1"
-    docker_install_compose: False
+    #nvidia_driver_package_version: "418.67-1"
     nvidia_driver_skip_reboot: yes
   pre_tasks:
     - name: check if nvidia gpu exist in lspci
