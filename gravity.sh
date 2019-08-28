@@ -127,8 +127,8 @@ echo "==                Installing Gravity, please wait...               ==" | t
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 set -e
-curl -fSLo anv-base-k8s-1.0.0.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/anv-base-k8s-1.0.0.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
-tar xf anv-base-k8s-1.0.0.tar | tee -a ${BASEDIR}/gravity-installer.log
+curl -fSLo anv-base-k8s-1.0.3.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/anv-base-k8s-1.0.3.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+tar xf anv-base-k8s-1.0.3.tar | tee -a ${BASEDIR}/gravity-installer.log
 ./gravity install \
 	--cloud-provider=generic \
 	--pod-network-cidr="10.244.0.0/16" \
