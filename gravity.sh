@@ -19,7 +19,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 ## Get home Dir of the current user
-if [ $SUDO_USER ]; then 
+if [ $SUDO_USER ]; then
   user=$SUDO_USER
 else
   user=`whoami`
@@ -33,7 +33,7 @@ fi
 
 ## Check if this machine is part of an existing Kubernetes cluster
 if [ -x "$(command -v kubectl)" ]; then
-  if ! [[ $(kubectl cluster-info) == *'https://localhost:6443'* ]]; then 
+  if ! [[ $(kubectl cluster-info) == *'https://localhost:6443'* ]]; then
     echo "" | tee -a ${BASEDIR}/gravity-installer.log
     echo "Error: this machine is part of an existing Kubernetes cluster, please detach it before running this installer." | tee -a ${BASEDIR}/gravity-installer.log
     echo "Installation failed, please contact support." | tee -a ${BASEDIR}/gravity-installer.log
@@ -138,8 +138,8 @@ tar xf anv-base-k8s-1.0.0.tar | tee -a ${BASEDIR}/gravity-installer.log
 	--flavor=aio \
 	--role=aio | tee -a ${BASEDIR}/gravity-installer.log
 
-## Provision a cluster admin user
-cat <<EOF > admin.yaml
+create_admin() {
+  cat <<EOF > admin.yaml
 ---
 kind: user
 version: v2
@@ -150,4 +150,15 @@ spec:
   password: "Passw0rd!"
   roles: ["@teleadmin"]
 EOF
-gravity resource create admin.yaml
+  gravity resource create admin.yaml
+}
+
+if [ $? = 0 ]; then
+  ## Provision a cluster admin user
+  create_admin
+  ## Install infra package
+  curl -fSLo k8s-infra-1.0.1.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/k8s-infra-1.0.1.tar.gz
+  gravity app import k8s-infra-1.0.1.tar.gz
+  gravity exec gravity app export gravitational.io/k8s-infra:1.0.1
+  gravity exec gravity app hook gravitational.io/k8s-infra:1.0.1 install
+fi
