@@ -155,12 +155,12 @@ EOF
 
 if [ $? = 0 ]; then
   ## Provision a cluster admin user
-  create_admin
+  create_admin | tee -a ${BASEDIR}/gravity-installer.log
   ## Install infra package
-  curl -fSLo k8s-infra-1.0.1.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/k8s-infra-1.0.1.tar.gz
-  gravity app import k8s-infra-1.0.1.tar.gz
-  gravity exec gravity app export gravitational.io/k8s-infra:1.0.1
-  gravity exec gravity ops connect --insecure https://localhost:3009 admin Passw0rd123
-  gravity exec gravity app push --insecure --ops-url=https://localhost:3009 gravitational.io/k8s-infra:1.0.1
-  gravity exec gravity app hook gravitational.io/k8s-infra:1.0.1 install
+  curl -fSLo k8s-infra-1.0.2.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/master/k8s-infra-1.0.2.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+  gravity app import k8s-infra-1.0.2.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity app export gravitational.io/k8s-infra:1.0.2 | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity app push --insecure --ops-url=https://localhost:3009 gravitational.io/k8s-infra:1.0.2 | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity app hook gravitational.io/k8s-infra:1.0.2 install | tee -a ${BASEDIR}/gravity-installer.log
 fi
