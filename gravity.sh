@@ -127,8 +127,8 @@ echo "==                Installing Gravity, please wait...               ==" | t
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 set -e
-curl -fSLo anv-base-k8s-1.0.3.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/anv-base-k8s-1.0.3.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
-tar xf anv-base-k8s-1.0.3.tar | tee -a ${BASEDIR}/gravity-installer.log
+curl -fSLo anv-base-k8s-1.0.4.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/development/anv-base-k8s-1.0.4.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+tar xf anv-base-k8s-1.0.4.tar | tee -a ${BASEDIR}/gravity-installer.log
 ./gravity install \
 	--cloud-provider=generic \
 	--pod-network-cidr="10.244.0.0/16" \
@@ -147,7 +147,7 @@ metadata:
   name: "admin"
 spec:
   type: "admin"
-  password: "Passw0rd!"
+  password: "Passw0rd123"
   roles: ["@teleadmin"]
 EOF
   gravity resource create admin.yaml
@@ -160,5 +160,7 @@ if [ $? = 0 ]; then
   curl -fSLo k8s-infra-1.0.1.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/k8s-infra-1.0.1.tar.gz
   gravity app import k8s-infra-1.0.1.tar.gz
   gravity exec gravity app export gravitational.io/k8s-infra:1.0.1
+  gravity exec gravity ops connect --insecure https://localhost:3009 admin Passw0rd123
+  gravity exec gravity app push --insecure --ops-url=https://localhost:3009 gravitational.io/k8s-infra:1.0.1
   gravity exec gravity app hook gravitational.io/k8s-infra:1.0.1 install
 fi
