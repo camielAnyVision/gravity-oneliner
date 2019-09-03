@@ -4,7 +4,8 @@
 SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
 BASEDIR=$(dirname "$SCRIPT")
-
+INSTALL_MODE="aio"
+INSTALL_METHOD="online"
 
 ## Permissions check
 if [[ $EUID -ne 0 ]]; then
@@ -173,8 +174,9 @@ tar xf anv-base-k8s-1.0.5.tar | tee -a ${BASEDIR}/gravity-installer.log
 	--cluster=cluster.local \
 	--flavor=aio \
 	--role=aio | tee -a ${BASEDIR}/gravity-installer.log
+}
 
-create_admin() {
+function create_admin() {
   cat <<EOF > admin.yaml
 ---
 kind: user
@@ -187,8 +189,6 @@ spec:
   roles: ["@teleadmin"]
 EOF
   gravity resource create admin.yaml
-}
-
 }
 
 
@@ -208,13 +208,18 @@ fi
 
 }
 
-
 is_kubectl_exists
 echo $KUBECTL_EXISTS
 
-online_nvidia_drivers_installation
-install_gravity
-install_k8s_infra_app
+if [[ $INSTALL_METHOD == "online" ]]; then
+     online_nvidia_drivers_installation
+     install_gravity
+     create_admin
+     install_k8s_infra_app
+else
+    echo Not installing
+fi
+
 
 
 
