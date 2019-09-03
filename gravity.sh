@@ -5,11 +5,6 @@ SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
 BASEDIR=$(dirname "$SCRIPT")
 
-# Disable Ansible warnings
-export ANSIBLE_LOCALHOST_WARNING=false
-export ANSIBLE_DEPRECATION_WARNINGS=false
-
-echo "------ Starting Gravity installer $(date '+%Y-%m-%d %H:%M:%S')  ------" > ${BASEDIR}/gravity-installer.log
 
 ## Permissions check
 if [[ $EUID -ne 0 ]]; then
@@ -31,15 +26,53 @@ else
   user_home_dir="/home/${user}"
 fi
 
-## Check if this machine is part of an existing Kubernetes cluster
-if [ -x "$(command -v kubectl)" ]; then
-  if ! [[ $(kubectl cluster-info) == *'https://localhost:6443'* ]]; then
-    echo "" | tee -a ${BASEDIR}/gravity-installer.log
-    echo "Error: this machine is part of an existing Kubernetes cluster, please detach it before running this installer." | tee -a ${BASEDIR}/gravity-installer.log
-    echo "Installation failed, please contact support." | tee -a ${BASEDIR}/gravity-installer.log
-    exit 1
+POSITIONAL=()
+while test $# -gt 0; do
+    key="$1"
+    case $key in
+        -h|help|--help)
+        showhelp
+        exit 0
+        ;;
+        -i|--install-mode)
+        shift
+            INSTALL_MODE=${1:-aio}
+        shift
+        continue
+        ;;
+        -m|--install-method)
+        shift
+            INSTALL_METHOD=${1:-online}
+        shift
+        continue
+        ;;
+    esac
+    break
+done
+
+
+
+function is_kubectl_exists() {
+  ## Check if this machine is part of an existing Kubernetes cluster
+  if [ -x "$(command -v kubectl)" ]; then
+    if ! [[ $(kubectl cluster-info) == *'https://localhost:6443'* ]]; then
+      echo "" | tee -a ${BASEDIR}/gravity-installer.log
+      echo "Error: this machine is part of an existing Kubernetes cluster, please detach it before running this installer." | tee -a ${BASEDIR}/gravity-installer.log
+      KUBECTL_EXISTS=true
+    fi
   fi
-fi
+
+}
+
+
+function online_nvidia_drivers_installation () {
+
+# Disable Ansible warnings
+export ANSIBLE_LOCALHOST_WARNING=false
+export ANSIBLE_DEPRECATION_WARNINGS=false
+
+echo "------ Starting Gravity installer $(date '+%Y-%m-%d %H:%M:%S')  ------" > ${BASEDIR}/gravity-installer.log
+
 
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
@@ -87,7 +120,7 @@ cat <<EOF > main.yml
   gather_facts: true
   become: yes
   vars:
-    #nvidia_driver_package_version: "418.67-1"
+    nvidia_driver_package_version: "410.104-1"
     nvidia_driver_skip_reboot: yes
   pre_tasks:
     - name: check if nvidia gpu exist in lspci
@@ -119,7 +152,10 @@ if [ $? != 0 ]; then
     exit 1
 fi
 
-## Install gravity
+}
+
+function install_gravity() {
+  ## Install gravity
 cd /opt/anv-gravity
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
@@ -153,6 +189,11 @@ EOF
   gravity resource create admin.yaml
 }
 
+}
+
+
+function install_k8s_infra_app() {
+
 if [ $? = 0 ]; then
   ## Provision a cluster admin user
   create_admin | tee -a ${BASEDIR}/gravity-installer.log
@@ -164,3 +205,16 @@ if [ $? = 0 ]; then
   gravity exec gravity app export gravitational.io/k8s-infra:1.0.5 | tee -a ${BASEDIR}/gravity-installer.log
   gravity exec gravity app hook --env=rancher=true gravitational.io/k8s-infra:1.0.5 install | tee -a ${BASEDIR}/gravity-installer.log
 fi
+
+}
+
+
+is_kubectl_exists
+echo $KUBECTL_EXISTS
+
+online_nvidia_drivers_installation
+install_gravity
+install_k8s_infra_app
+
+
+
