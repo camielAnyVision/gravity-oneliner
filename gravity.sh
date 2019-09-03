@@ -60,7 +60,7 @@ else
         set +e
     elif [ -x "$(command -v yum)" ]; then
         set -e
-        yum install -y curl > /dev/null
+        #yum install -y curl > /dev/null
         curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm > /dev/null
 	rpm -ivh epel-release-latest-7.noarch.rpm || true > /dev/null
         yum install -y epel-release > /dev/null
