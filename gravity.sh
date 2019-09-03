@@ -127,8 +127,8 @@ echo "==                Installing Gravity, please wait...               ==" | t
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 set -e
-curl -fSLo anv-base-k8s-1.0.4.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/development/anv-base-k8s-1.0.4.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
-tar xf anv-base-k8s-1.0.4.tar | tee -a ${BASEDIR}/gravity-installer.log
+curl -fSLo anv-base-k8s-1.0.5.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/anv-base-k8s-1.0.5.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+tar xf anv-base-k8s-1.0.5.tar | tee -a ${BASEDIR}/gravity-installer.log
 ./gravity install \
 	--cloud-provider=generic \
 	--pod-network-cidr="10.244.0.0/16" \
@@ -157,10 +157,10 @@ if [ $? = 0 ]; then
   ## Provision a cluster admin user
   create_admin | tee -a ${BASEDIR}/gravity-installer.log
   ## Install infra package
-  curl -fSLo k8s-infra-1.0.5.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/master/k8s-infra-1.0.5.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
-  gravity app import k8s-infra-1.0.5.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
-  gravity exec gravity app export gravitational.io/k8s-infra:1.0.5 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity exec gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity exec gravity app push --insecure --ops-url=https://localhost:3009 gravitational.io/k8s-infra:1.0.5 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity exec gravity app hook gravitational.io/k8s-infra:1.0.5 install | tee -a ${BASEDIR}/gravity-installer.log
+  curl -fSLo k8s-infra-1.0.5.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/k8s-infra-1.0.5.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+  gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
+  gravity app import --force --insecure --ops-url=https://localhost:3009 k8s-infra-1.0.5.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
+  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/k8s-infra:1.0.5 | tee -a ${BASEDIR}/gravity-installer.log
+  #gravity exec gravity app export gravitational.io/k8s-infra:1.0.5 | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity app hook --env=rancher=true gravitational.io/k8s-infra:1.0.5 install | tee -a ${BASEDIR}/gravity-installer.log
 fi
