@@ -6,6 +6,14 @@ SCRIPT=$(readlink -f "$0")
 BASEDIR=$(dirname "$SCRIPT")
 INSTALL_MODE="aio"
 INSTALL_METHOD="online"
+K8S_BASE_NAME="anv-base-k8s"
+K8S_BASE_VERSION="1.0.5"
+K8S_INFRA_NAME="k8s-infra"
+K8S_INFRA_VERSION="1.0.5"
+PRODUCT_NAME="bettertomorrow"
+PRODUCT_VERSION="1.23.1-5"
+APT_REPO_FILE_NAME="apt-repo-20190821.tar"
+
 
 ## Permissions check
 if [[ $EUID -ne 0 ]]; then
@@ -47,6 +55,18 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        -k|--k8s-base-version)
+        shift
+            K8S_BASE_VERSION=${1:-1.0.5}
+        shift
+        continue
+        ;;
+        -n|--k8s-infra-version)
+        shift
+            K8S_INFRA_VERSION=${1:-1.0.5}
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -63,6 +83,15 @@ function is_kubectl_exists() {
     fi
   fi
 
+}
+
+function is_tar_files_exists(){
+    for file in ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar ${APT_REPO_FILE_NAME}; do
+        if [[ ! -f $file ]] ; then
+            echo "Missing $file it's required for installation to success"
+            exit 1
+        fi
+    done
 }
 
 
@@ -164,8 +193,10 @@ echo "==                Installing Gravity, please wait...               ==" | t
 echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
 echo "" | tee -a ${BASEDIR}/gravity-installer.log
 set -e
-curl -fSLo anv-base-k8s-1.0.5.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/anv-base-k8s-1.0.5.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
-tar xf anv-base-k8s-1.0.5.tar | tee -a ${BASEDIR}/gravity-installer.log
+if [[ $INSTALL_METHOD = "online" ]]; then
+  curl -fSLo ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+fi
+tar xf ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
 ./gravity install \
 	--cloud-provider=generic \
 	--pod-network-cidr="10.244.0.0/16" \
@@ -198,26 +229,31 @@ if [ $? = 0 ]; then
   ## Provision a cluster admin user
   create_admin | tee -a ${BASEDIR}/gravity-installer.log
   ## Install infra package
-  curl -fSLo k8s-infra-1.0.5.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/k8s-infra-1.0.5.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+  if [[ $INSTALL_METHOD = "online" ]]; then
+    curl -fSLo ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+  fi
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity app import --force --insecure --ops-url=https://localhost:3009 k8s-infra-1.0.5.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
-  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/k8s-infra:1.0.5 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity exec gravity app export gravitational.io/k8s-infra:1.0.5 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity exec gravity app hook --env=rancher=true gravitational.io/k8s-infra:1.0.5 install | tee -a ${BASEDIR}/gravity-installer.log
+  gravity app import --force --insecure --ops-url=https://localhost:3009 ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
+  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity app export gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install | tee -a ${BASEDIR}/gravity-installer.log
 fi
 
 }
 
+echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD"
+
 is_kubectl_exists
 echo $KUBECTL_EXISTS
 
-if [[ $INSTALL_METHOD == "online" ]]; then
+if [[ $INSTALL_METHOD = "online" ]]; then
      online_nvidia_drivers_installation
      install_gravity
      create_admin
      install_k8s_infra_app
 else
-    echo Not installing
+    is_tar_files_exists
+    install_gravity
 fi
 
 
