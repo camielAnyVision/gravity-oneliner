@@ -281,7 +281,7 @@ EOF
 function install_gravity_app() {
   echo "Installing app $1 version $2"
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
+  gravity app import --force --insecure --ops-url=https://localhost:3009 ${1}-${2}.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
   gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2} | tee -a ${BASEDIR}/gravity-installer.log
   gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${BASEDIR}/gravity-installer.log
   gravity exec gravity app hook --env=rancher=true gravitational.io/${1}:${2} install | tee -a ${BASEDIR}/gravity-installer.log
@@ -292,6 +292,7 @@ function install_k8s_infra_app() {
   ## Install infra package
   if [[ $INSTALL_METHOD = "online" ]]; then
     curl -fSLo ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+                                                             https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/k8s-infra-1.0.5.tar.gz
   fi
   install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
 
@@ -299,7 +300,7 @@ function install_k8s_infra_app() {
 
 function install_product_app() {
   if [[ $INSTALL_METHOD = "online" ]]; then
-    curl -fSLo ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+    curl -fSLo ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
   fi
   install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
 
