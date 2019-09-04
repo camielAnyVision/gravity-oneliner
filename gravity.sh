@@ -227,7 +227,7 @@ fi
 
 function install_nvidia_drivers_airgap() {
     ## if ubuntu
-    tar -xvf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages
+    tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages
     mkdir -p /etc/apt-orig
     rsync -q -a --ignore-existing /etc/apt/ /etc/apt-orig/
     rm -rf /etc/apt/sources.list.d/*
@@ -250,7 +250,7 @@ function install_gravity() {
         if [[ $INSTALL_METHOD = "online" ]]; then
           curl -fSLo ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
         fi
-        tar xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
+        tar xf ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
         ./gravity install \
             --cloud-provider=generic \
             --pod-network-cidr="10.244.0.0/16" \
