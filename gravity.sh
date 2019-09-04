@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Absolute path to this script
 SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
@@ -13,6 +15,11 @@ K8S_INFRA_VERSION="1.0.5"
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.23.1-5"
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
+NVIDIA_DRIVERS_VERSION="410.104-1"
+SKIP_K8S_BASE=false
+SKIP_K8S_INFRA=false
+SKIP_PRODUCT=false
+SKIP_DRIVERS=false
 
 
 ## Permissions check
@@ -67,10 +74,45 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        -p|--product-name)
+        shift
+            PRODUCT_NAME=${1:-bettertomorrow}
+        shift
+        continue
+        ;;
+        -s|--product-version)
+        shift
+            PRODUCT_VERSION=${1:-1.23.1-5}
+        shift
+        continue
+        ;;
+#        --skip-base)
+#        shift
+#            SKIP_K8S_BASE=${1:-true}
+#        shift
+#        continue
+#        ;;
+#        --skip-infra)
+#        shift
+#            SKIP_K8S_INFRA=${1:-true}
+#        shift
+#        continue
+#        ;;
+#        --skip-product)
+#        shift
+#            SKIP_PRODUCT=${1:-true}
+#        shift
+#        continue
+#        ;;
+#        --skip-drivers)
+#        shift
+#            SKIP_DRIVERS=${1:-true}
+#        shift
+#        continue
+#        ;;
     esac
     break
 done
-
 
 
 function is_kubectl_exists() {
@@ -82,11 +124,10 @@ function is_kubectl_exists() {
       KUBECTL_EXISTS=true
     fi
   fi
-
 }
 
 function is_tar_files_exists(){
-    for file in ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar ${APT_REPO_FILE_NAME}; do
+    for file in ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz ${APT_REPO_FILE_NAME}; do
         if [[ ! -f $file ]] ; then
             echo "Missing $file it's required for installation to success"
             exit 1
@@ -184,27 +225,42 @@ fi
 
 }
 
+function install_nvidia_drivers_airgap() {
+    ## if ubuntu
+    tar -xvf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages
+    mkdir -p /etc/apt-orig
+    rsync -q -a --ignore-existing /etc/apt/ /etc/apt-orig/
+    rm -rf /etc/apt/sources.list.d/*
+    echo "deb [arch=amd64 trusted=yes allow-insecure=yes] http://$(hostname --ip-address | awk '{print $1}'):8085/ bionic main" > /etc/apt/sources.list
+    apt update -y
+    apt install cuda-drivers=${NVIDIA_DRIVERS_VERSION}
+    ## redhat
+}
+
 function install_gravity() {
-  ## Install gravity
-cd /opt/anv-gravity
-echo "" | tee -a ${BASEDIR}/gravity-installer.log
-echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
-echo "==                Installing Gravity, please wait...               ==" | tee -a ${BASEDIR}/gravity-installer.log
-echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
-echo "" | tee -a ${BASEDIR}/gravity-installer.log
-set -e
-if [[ $INSTALL_METHOD = "online" ]]; then
-  curl -fSLo ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
-fi
-tar xf ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
-./gravity install \
-	--cloud-provider=generic \
-	--pod-network-cidr="10.244.0.0/16" \
-	--service-cidr="10.100.0.0/16" \
-	--vxlan-port=8472 \
-	--cluster=cluster.local \
-	--flavor=aio \
-	--role=aio | tee -a ${BASEDIR}/gravity-installer.log
+    ## Install gravity
+    if [[ "$SKIP_K8S_BASE" = false ]]; then
+        pushd /opt/anv-gravity
+        echo "" | tee -a ${BASEDIR}/gravity-installer.log
+        echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
+        echo "==                Installing Gravity, please wait...               ==" | tee -a ${BASEDIR}/gravity-installer.log
+        echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
+        echo "" | tee -a ${BASEDIR}/gravity-installer.log
+        set -e
+        if [[ $INSTALL_METHOD = "online" ]]; then
+          curl -fSLo ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+        fi
+        tar xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
+        ./gravity install \
+            --cloud-provider=generic \
+            --pod-network-cidr="10.244.0.0/16" \
+            --service-cidr="10.100.0.0/16" \
+            --vxlan-port=8472 \
+            --cluster=cluster.local \
+            --flavor=aio \
+            --role=aio | tee -a ${BASEDIR}/gravity-installer.log
+        popd
+     fi
 }
 
 function create_admin() {
@@ -222,24 +278,33 @@ EOF
   gravity resource create admin.yaml
 }
 
+function install_gravity_app() {
+  echo "Installing app $1 version $2"
+  gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
+  gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
+  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2} | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${BASEDIR}/gravity-installer.log
+  gravity exec gravity app hook --env=rancher=true gravitational.io/${1}:${2} install | tee -a ${BASEDIR}/gravity-installer.log
+}
 
 function install_k8s_infra_app() {
 
-if [ $? = 0 ]; then
-  ## Provision a cluster admin user
-  create_admin | tee -a ${BASEDIR}/gravity-installer.log
   ## Install infra package
   if [[ $INSTALL_METHOD = "online" ]]; then
-    curl -fSLo ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+    curl -fSLo ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
   fi
-  gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity app import --force --insecure --ops-url=https://localhost:3009 ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
-  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} | tee -a ${BASEDIR}/gravity-installer.log
-  gravity exec gravity app export gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} | tee -a ${BASEDIR}/gravity-installer.log
-  gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install | tee -a ${BASEDIR}/gravity-installer.log
-fi
+  install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
 
 }
+
+function install_product_app() {
+  if [[ $INSTALL_METHOD = "online" ]]; then
+    curl -fSLo ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+  fi
+  install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
+
+}
+
 
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD"
 
@@ -251,11 +316,12 @@ if [[ $INSTALL_METHOD = "online" ]]; then
      install_gravity
      create_admin
      install_k8s_infra_app
+     install_product_app
 else
     is_tar_files_exists
     install_gravity
+    create_admin
+    install_k8s_infra_app
+    install_nvidia_drivers_airgap
+    install_product_app
 fi
-
-
-
-
