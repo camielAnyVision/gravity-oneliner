@@ -43,6 +43,18 @@ else
   user_home_dir="/home/${user}"
 fi
 
+function showhelp {
+   echo ""
+   echo "OPTIONS:"
+   echo "  [-i|--install-mode] Installation mode [aio, cluster]"
+   echo "  [m|--install-method] Installation method [online, airgap (need extra files on same dir as this script)]"
+   echo "  [-k|--k8s-base-version] K8S base image version [1.0.5]"
+   echo "  [-n|--k8s-infra-version] K8S infra image [1.0.5]"
+   echo "  [-p|--product-name] Product name to install"
+   echo "  [-s|--product-version] Product version to install"
+   echo ""
+}
+
 POSITIONAL=()
 while test $# -gt 0; do
     key="$1"
