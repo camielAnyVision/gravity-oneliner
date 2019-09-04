@@ -292,7 +292,7 @@ EOF
 }
 
 function deploy_product_using_rancher() {
-if [[ $"INSTALL_PRODUCT" = "true" ]];then
+if [[ $INSTALL_PRODUCT = "true" ]];then
 
 cat <<EOF > install-product.yaml
 apiVersion: batch/v1
