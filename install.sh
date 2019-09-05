@@ -101,30 +101,6 @@ while test $# -gt 0; do
         shift
         continue
         ;;
-#        --skip-base)
-#        shift
-#            SKIP_K8S_BASE=${1:-true}
-#        shift
-#        continue
-#        ;;
-#        --skip-infra)
-#        shift
-#            SKIP_K8S_INFRA=${1:-true}
-#        shift
-#        continue
-#        ;;
-#        --skip-product)
-#        shift
-#            SKIP_PRODUCT=${1:-true}
-#        shift
-#        continue
-#        ;;
-#        --skip-drivers)
-#        shift
-#            SKIP_DRIVERS=${1:-true}
-#        shift
-#        continue
-#        ;;
     esac
     break
 done
