@@ -45,6 +45,8 @@ fi
 
 function showhelp {
    echo ""
+   echo "Gravity Oneliner Installer"
+   echo ""
    echo "OPTIONS:"
    echo "  [-i|--install-mode] Installation mode [aio, cluster]"
    echo "  [m|--install-method] Installation method [online, airgap (need extra files on same dir as this script)]"
@@ -253,7 +255,6 @@ function install_nvidia_drivers_airgap() {
 function install_gravity() {
     ## Install gravity
     if [[ "$SKIP_K8S_BASE" = false ]]; then
-        pushd /opt/anv-gravity
         echo "" | tee -a ${BASEDIR}/gravity-installer.log
         echo "=====================================================================" | tee -a ${BASEDIR}/gravity-installer.log
         echo "==                Installing Gravity, please wait...               ==" | tee -a ${BASEDIR}/gravity-installer.log
@@ -261,9 +262,9 @@ function install_gravity() {
         echo "" | tee -a ${BASEDIR}/gravity-installer.log
         set -e
         if [[ $INSTALL_METHOD = "online" ]]; then
-          curl -fSLo ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+          curl -fSLo ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
         fi
-        tar xf ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
+        tar xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
         ./gravity install \
             --cloud-provider=generic \
             --pod-network-cidr="10.244.0.0/16" \
@@ -272,7 +273,6 @@ function install_gravity() {
             --cluster=cluster.local \
             --flavor=aio \
             --role=aio | tee -a ${BASEDIR}/gravity-installer.log
-        popd
      fi
 }
 
@@ -399,7 +399,7 @@ fi
 function install_gravity_app() {
   echo "Installing app $1 version $2"
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
-  gravity app import --force --insecure --ops-url=https://localhost:3009 ${1}-${2}.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
+  gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${BASEDIR}/gravity-installer.log
   gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2} | tee -a ${BASEDIR}/gravity-installer.log
   gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${BASEDIR}/gravity-installer.log
   gravity exec gravity app hook --env=rancher=true gravitational.io/${1}:${2} install | tee -a ${BASEDIR}/gravity-installer.log
@@ -409,7 +409,7 @@ function install_k8s_infra_app() {
 
   ## Install infra package
   if [[ $INSTALL_METHOD = "online" ]]; then
-    curl -fSLo ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+    curl -fSLo ${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
   fi
   install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
 
