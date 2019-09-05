@@ -291,111 +291,6 @@ EOF
   gravity resource create admin.yaml
 }
 
-function deploy_product_using_rancher() {
-if [[ $INSTALL_PRODUCT = "true" ]];then
-
-cat <<EOF > install-product.yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  labels:
-    job-name: install-product
-  name: install-product
-  namespace: kube-system
-spec:
-  activeDeadlineSeconds: 1200
-  backoffLimit: 6
-  completions: 1
-  parallelism: 1
-  selector:
-    matchLabels:
-      job-name: install-product
-  template:
-    metadata:
-      labels:
-        job-name: install-product
-      name: k8s-infra-install
-    spec:
-      containers:
-      - args:
-        - /var/lib/gravity/resources/infra-install.sh
-        command: ["/bin/bash", "-c"]
-        args:
-          - echo "Setting rancher url";
-            RANCHER_SERVER_BASE=https://rancher.cattle-system.svc.cluster.local;
-            echo "Getting rancher api token"
-            APITOKEN=$(kubectl get secrets -n kube-system rancher-cli-token  -o=jsonpath='{.data.cli2\.json}' | base64 --decode | jq -r .Servers.rancherDefault.tokenKey);
-            echo "login to rancher"
-            for i in {1..5}; do rancher login $RANCHER_SERVER_BASE --token $APITOKEN --skip-verify > /dev/null 2>&1 && break || sleep 3; done;
-            echo "Installing BT"
-            rancher app install bettertomorrow --version 1.23.1-5 --namespace default --no-prompt;
-        env:
-        - name: rancher
-          value: "true"
-        - name: DEVMODE
-          value: "false"
-        - name: GRAVITY_SERVICE_USER
-        image: leader.telekube.local:5000/anyvision-training/rancher-toolbox:19.07
-        imagePullPolicy: IfNotPresent
-        name: deploy
-        volumeMounts:
-        - mountPath: /opt/bin
-          name: bin
-        - mountPath: /usr/local/bin/kubectl
-          name: kubectl
-        - mountPath: /usr/local/bin/helm
-          name: helm
-        - mountPath: /etc/ssl/certs
-          name: certs
-        - mountPath: /var/lib/gravity/resources
-          name: resources
-      dnsPolicy: ClusterFirst
-      nodeSelector:
-        gravitational.io/k8s-role: master
-      restartPolicy: Never
-      schedulerName: default-scheduler
-      securityContext:
-        fsGroup: 0
-        runAsNonRoot: false
-        runAsUser: 0
-      tolerations:
-      - effect: NoSchedule
-        operator: Exists
-      - effect: NoExecute
-        operator: Exists
-      volumes:
-      - hostPath:
-          path: /usr/bin
-          type: ""
-        name: bin
-      - hostPath:
-          path: /usr/bin/kubectl
-          type: ""
-        name: kubectl
-      - hostPath:
-          path: /usr/bin/helm
-          type: ""
-        name: helm
-      - hostPath:
-          path: /etc/ssl/certs
-          type: ""
-        name: certs
-      - hostPath:
-          path: /var/lib/gravity/local
-          type: ""
-        name: gravity
-      - emptyDir: {}
-        name: resources
-      - emptyDir: {}
-        name: state-dir
-
-EOF
-  kubectl apply -f install-product.yaml
-fi
-
-}
-
-
 function install_gravity_app() {
   echo "Installing app $1 version $2"
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${BASEDIR}/gravity-installer.log
@@ -435,7 +330,6 @@ if [[ $INSTALL_METHOD = "online" ]]; then
      create_admin
      install_k8s_infra_app
      install_product_app
-     deploy_product_using_rancher
 else
     is_tar_files_exists
     install_gravity
@@ -443,5 +337,4 @@ else
     install_k8s_infra_app
     install_nvidia_drivers_airgap
     install_product_app
-    deploy_product_using_rancher
 fi
