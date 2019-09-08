@@ -224,7 +224,7 @@ function install_nvidia_drivers_airgap() {
     rm -rf /etc/apt/sources.list.d/*
     echo "deb [arch=amd64 trusted=yes allow-insecure=yes] http://$(hostname --ip-address | awk '{print $1}'):8085/ bionic main" > /etc/apt/sources.list
     apt update -y
-    apt install cuda-drivers=${NVIDIA_DRIVERS_VERSION}
+    apt install -y cuda-drivers=${NVIDIA_DRIVERS_VERSION}
     ## redhat
 }
 
