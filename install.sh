@@ -199,6 +199,11 @@ function online_packages_installation() {
 }
 
 function nvidia_drivers_installation() {
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==                Installing Nvidia Drivers, please wait...               ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}  
   if [ -x "$(command -v apt-get)" ]; then
     if dpkg-query --show nvidia-driver-410 ; then
       echo "nvidia driver nvidia-driver-410 already installed"
