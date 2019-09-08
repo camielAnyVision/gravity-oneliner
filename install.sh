@@ -238,7 +238,7 @@ function install_gravity() {
         echo "" | tee -a ${BASEDIR}/gravity-installer.log
         set -e
         if [[ $INSTALL_METHOD = "online" ]]; then
-          curl -fSLo ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
+          curl -fSLo ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/base-k8s/anv-base-k8s/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${BASEDIR}/gravity-installer.log >&2)
         fi
         tar xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${BASEDIR}/gravity-installer.log
         ./gravity install \
