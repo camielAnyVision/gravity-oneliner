@@ -64,7 +64,7 @@ function showhelp {
    echo ""
    echo "OPTIONS:"
    echo "  [-i|--install-mode] Installation mode [default:aio, cluster]"
-   echo "  [m|--install-method] Installation method [default:online, airgap (need extra files on same dir as this script)]"
+   echo "  [-m|--install-method] Installation method [default:online, airgap (need extra files on same dir as this script)]"
    echo "  [-k|--k8s-base-version] K8S base image version [default:1.0.5]"
    echo "  [-n|--k8s-infra-version] K8S infra image [default:1.0.5]"
    echo "  [-p|--product-name] Product name to install"
@@ -270,6 +270,7 @@ function install_gravity() {
     tar -xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar -C ${BASEDIR}/${K8S_BASE_NAME} | tee -a ${LOG_FILE}
     #fi
     
+    cd ${BASEDIR}/${K8S_BASE_NAME}
     ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
         --cloud-provider=generic \
         --pod-network-cidr="10.244.0.0/16" \
@@ -278,6 +279,7 @@ function install_gravity() {
         --cluster=cluster.local \
         --flavor=aio \
         --role=aio | tee -a ${LOG_FILE}
+    cd ${BASEDIR}
   fi
 }
 
