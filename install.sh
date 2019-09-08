@@ -30,7 +30,7 @@ RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
 
-INSTALL_PRODUCT=true
+INSTALL_PRODUCT=false
 SKIP_K8S_BASE=false
 SKIP_K8S_INFRA=false
 SKIP_PRODUCT=false
@@ -65,10 +65,11 @@ function showhelp {
    echo "OPTIONS:"
    echo "  [-i|--install-mode] Installation mode [default:aio, cluster]"
    echo "  [-m|--install-method] Installation method [default:online, airgap (need extra files on same dir as this script)]"
-   echo "  [-k|--k8s-base-version] K8S base image version [default:1.0.5]"
-   echo "  [-n|--k8s-infra-version] K8S infra image [default:1.0.5]"
+   echo "  [--k8s-base-version] K8S base image version [default:1.0.5]"
+   echo "  [--k8s-infra-version] K8S infra image [default:1.0.5]"
    echo "  [-p|--product-name] Product name to install"
-   echo "  [-s|--product-version] Product version to install [default:1.23.1-5]"
+   echo "  [--product-version] Product version to install [default:1.23.1-5]"
+   echo "  [--auto-install-product] auto install product  [default:1.23.1-5]"
    echo ""
 }
 
@@ -113,6 +114,12 @@ while test $# -gt 0; do
         -s|--product-version)
         shift
             PRODUCT_VERSION=${1:-$PRODUCT_VERSION}
+        shift
+        continue
+        ;;
+        --auto-install-product)
+        shift
+            INSTALL_PRODUCT=${1:-$INSTALL_PRODUCT}
         shift
         continue
         ;;
@@ -305,12 +312,16 @@ EOF
 }
 
 function install_gravity_app() {
-  echo "Installing app $1 version $2"
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==                Installing App $1 version $2, please wait...               ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}  
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
   gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${LOG_FILE}
   gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
   gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
-  gravity exec gravity app hook --env=rancher=true gravitational.io/${1}:${2} install | tee -a ${LOG_FILE}
+  
 }
 
 function install_k8s_infra_app() {
@@ -320,7 +331,7 @@ function install_k8s_infra_app() {
   #   curl -fSLo ${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz 2> >(tee -a ${LOG_FILE} >&2)
   # fi
   install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
-
+  gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install | tee -a ${LOG_FILE}
 }
 
 function install_product_app() {
@@ -328,7 +339,7 @@ function install_product_app() {
   #   curl -fSLo ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz 2> >(tee -a ${LOG_FILE} >&2)
   # fi
   install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
-
+  gravity exec gravity app hook --env=install_product=${INSTALL_PRODUCT} gravitational.io/${K8S_INFRA_NAME}:${PRODUCT_VERSION} install | tee -a ${LOG_FILE}
 }
 
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD"
