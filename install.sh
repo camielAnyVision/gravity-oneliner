@@ -8,22 +8,35 @@ SCRIPT=$(readlink -f "$0")
 BASEDIR=$(dirname "$SCRIPT")
 INSTALL_MODE="aio"
 INSTALL_METHOD="online"
+LOG_FILE="/var/log/gravity-installer.log"
+S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
+
+# Gravity options
 K8S_BASE_NAME="anv-base-k8s"
 K8S_BASE_VERSION="1.0.5"
+
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.5"
-LOG_FILE="/var/log/gravity-installer.log"
+
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.23.1-5"
-APT_REPO_FILE_NAME="apt-repo-20190821.tar"
+
+# UBUNTU Options
 NVIDIA_DRIVERS_VERSION="410.104-1"
-RHEL_PACKAGES="rhel-packages-20190821.tar"
+APT_REPO_FILE_NAME="apt-repo-20190821.tar"
+APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
+# RHEL/CENTOS options
+RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
+RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
+RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
+
 INSTALL_PRODUCT=true
 SKIP_K8S_BASE=false
 SKIP_K8S_INFRA=false
 SKIP_PRODUCT=false
 SKIP_DRIVERS=false
 
+echo "------ Staring Gravity installer $(date '+%Y-%m-%d %H:%M:%S')  ------" >${LOG_FILE} 2>&1
 
 ## Permissions check
 if [[ $EUID -ne 0 ]]; then
@@ -69,37 +82,37 @@ while test $# -gt 0; do
         ;;
         -i|--install-mode)
         shift
-            INSTALL_MODE=${1:-aio}
+            INSTALL_MODE=${1:-$INSTALL_MODE}
         shift
         continue
         ;;
         -m|--install-method)
         shift
-            INSTALL_METHOD=${1:-online}
+            INSTALL_METHOD=${1:-$INSTALL_METHOD}
         shift
         continue
         ;;
         -k|--k8s-base-version)
         shift
-            K8S_BASE_VERSION=${1:-1.0.5}
+            K8S_BASE_VERSION=${1:-$K8S_BASE_VERSION}
         shift
         continue
         ;;
         -n|--k8s-infra-version)
         shift
-            K8S_INFRA_VERSION=${1:-1.0.5}
+            K8S_INFRA_VERSION=${1:-$K8S_INFRA_VERSION}
         shift
         continue
         ;;
         -p|--product-name)
         shift
-            PRODUCT_NAME=${1:-bettertomorrow}
+            PRODUCT_NAME=${1:-$PRODUCT_NAME}
         shift
         continue
         ;;
         -s|--product-version)
         shift
-            PRODUCT_VERSION=${1:-1.23.1-5}
+            PRODUCT_VERSION=${1:-$PRODUCT_VERSION}
         shift
         continue
         ;;
@@ -107,10 +120,9 @@ while test $# -gt 0; do
     break
 done
 
-
 function is_kubectl_exists() {
   ## Check if this machine is part of an existing Kubernetes cluster
-  if gravity status --quiet; then
+  if gravity status --quiet > /dev/null 2>&1; then
     echo "Gravity cluster is already installed"  
     if [ -x "$(command -v kubectl)" ]; then
       if [[ $(kubectl cluster-info) == *'Kubernetes master'*'running'*'https://'* ]]; then
@@ -132,7 +144,30 @@ function is_tar_files_exists(){
     done
 }
 
-function online_packages_installation () {
+function download_files(){
+  K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
+  K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
+  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
+
+  if [ -x "$(command -v apt-get)" ]; then
+    declare -a PACKAGES_TO_DOWNLOAD=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+  else
+    declare -a PACKAGES_TO_DOWNLOAD=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+  fi
+
+  for url in "${PACKAGES_TO_DOWNLOAD[@]}"; do
+    # run the curl job in the background so we can start another job
+    # and disable the progress bar (-s)
+    filename=$(echo "${url##*/}")
+    if [ ! -f "${BASEDIR}/$filename" ]; then
+      echo "Downloading $url"
+      curl -fSsLO -C - $url >>${LOG_FILE} 2>&1 &
+    fi
+  done
+  wait #wait for all background jobs to terminate
+}
+
+function online_packages_installation() {
   echo "" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "==                Installing Packages, please wait...               ==" | tee -a ${LOG_FILE}
@@ -145,8 +180,8 @@ function online_packages_installation () {
           set -e
           apt-get -qq update >>${LOG_FILE} 2>&1
           apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
-          apt-add-repository --yes --update ppa:ansible/ansible >>${LOG_FILE} 2>&1
-          apt-get -qq install -y ansible >>${LOG_FILE} 2>&1
+          #apt-add-repository --yes --update ppa:ansible/ansible >>${LOG_FILE} 2>&1
+          #apt-get -qq install -y ansible >>${LOG_FILE} 2>&1
           set +e
       elif [ -x "$(command -v yum)" ]; then
           set -e
@@ -154,16 +189,16 @@ function online_packages_installation () {
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
           yum install -y epel-release >>${LOG_FILE} 2>&1
-          yum install -y python python-pip >>${LOG_FILE} 2>&1
-          pip install --upgrade pip >>${LOG_FILE} 2>&1
+          #yum install -y python python-pip >>${LOG_FILE} 2>&1
+          #pip install --upgrade pip >>${LOG_FILE} 2>&1
           #pip install markupsafe xmltodict pywinrm > /dev/null
-          yum install -y ansible >>${LOG_FILE} 2>&1
+          #yum install -y ansible >>${LOG_FILE} 2>&1
           set +e
       fi
   fi
 }
 
-function nvidia_drivers_installation () {
+function nvidia_drivers_installation() {
   if [ -x "$(command -v apt-get)" ]; then
     if dpkg-query --show nvidia-driver-410 ; then
       echo "nvidia driver nvidia-driver-410 already installed"
@@ -181,8 +216,8 @@ function nvidia_drivers_installation () {
         echo "deb [arch=amd64 trusted=yes allow-insecure=yes] http://$(hostname --ip-address | awk '{print $1}'):8085/ bionic main" > /etc/apt/sources.list
       fi
       apt-get update>>${LOG_FILE} 2>&1
-      echo "Remove old nvidia drivers if exist"
-      apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
+      #echo "Remove old nvidia drivers if exist"
+      #apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
       set -e
       apt-get install -y --no-install-recommends cuda-drivers=410.104-1 >>${LOG_FILE} 2>&1
       set +e
@@ -193,26 +228,27 @@ function nvidia_drivers_installation () {
       echo "nvidia driver nvidia-driver-410 already installed"
     else
       echo "Installing nvidia driver nvidia-driver-410"
-      mkdir -p /tmp/drivers
+      
       if [[ $INSTALL_METHOD = "online" ]]; then
         yum install -y gcc kernel-devel >>${LOG_FILE} 2>&1
-        if [ ! -f "/tmp/drivers/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run" ]; then
-          echo "Downloading NVIDIA drivers"
-          curl http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run \
-          --output /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-        fi
+        # if [ ! -f "/tmp/drivers/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run" ]; then
+        #   echo "Downloading NVIDIA drivers"
+        #   curl http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run \
+        #   --output ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
+        # fi
       else
-        curl http://$(hostname --ip-address | awk '{print $1}')/${RHEL_PACKAGES} \
-        --output /tmp/drivers/${RHEL_PACKAGES} >>${LOG_FILE} 2>&1
-        tar -xf /tmp/drivers/rhel-packages-<upload date>.tar -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
+        # curl http://$(hostname --ip-address | awk '{print $1}')/${RHEL_PACKAGES_FILE_NAME} \
+        # --output ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} >>${LOG_FILE} 2>&1
+        mkdir -p /tmp/drivers
+        tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
         
-        curl http://$(hostname --ip-address | awk '{print $1}')/NVIDIA-Linux-x86_64-410.104.run \
-        --output /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
+        # curl http://$(hostname --ip-address | awk '{print $1}')/NVIDIA-Linux-x86_64-410.104.run \
+        # --output /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       fi
-      yum remove -y *nvidia* cuda* >>${LOG_FILE} 2>&1
+      #yum remove -y *nvidia* cuda* >>${LOG_FILE} 2>&1
       set -e
-      chmod +x /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-      /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
+      chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
+      ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
       set +e
     fi
   fi
@@ -227,13 +263,14 @@ function install_gravity() {
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
     set -e
-    if [[ $INSTALL_METHOD = "online" ]]; then
-      curl -fSLo ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${LOG_FILE} >&2)
-    else
-      tar xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar | tee -a ${LOG_FILE}
-    fi
+    #if [[ $INSTALL_METHOD = "online" ]]; then
+    #  curl -fSLo ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${LOG_FILE} >&2)
+    #else
+    mkdir -p ${BASEDIR}/${K8S_BASE_NAME}
+    tar -xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar -C ${BASEDIR}/${K8S_BASE_NAME} | tee -a ${LOG_FILE}
+    #fi
     
-    ./gravity install \
+    ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
         --cloud-provider=generic \
         --pod-network-cidr="10.244.0.0/16" \
         --service-cidr="10.100.0.0/16" \
@@ -272,27 +309,27 @@ function install_gravity_app() {
 function install_k8s_infra_app() {
 
   ## Install infra package
-  if [[ $INSTALL_METHOD = "online" ]]; then
-    curl -fSLo ${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz 2> >(tee -a ${LOG_FILE} >&2)
-  fi
+  # if [[ $INSTALL_METHOD = "online" ]]; then
+  #   curl -fSLo ${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz 2> >(tee -a ${LOG_FILE} >&2)
+  # fi
   install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
 
 }
 
 function install_product_app() {
-  if [[ $INSTALL_METHOD = "online" ]]; then
-    curl -fSLo ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz 2> >(tee -a ${LOG_FILE} >&2)
-  fi
+  # if [[ $INSTALL_METHOD = "online" ]]; then
+  #   curl -fSLo ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz 2> >(tee -a ${LOG_FILE} >&2)
+  # fi
   install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
 
 }
 
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD"
-
 is_kubectl_exists
 echo $KUBECTL_EXISTS
 
 if [[ $INSTALL_METHOD = "online" ]]; then
+  download_files
   online_packages_installation
   nvidia_drivers_installation
   install_gravity
