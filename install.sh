@@ -134,7 +134,7 @@ function is_kubectl_exists() {
     if [ -x "$(command -v kubectl)" ]; then
       if [[ $(kubectl cluster-info) == *'Kubernetes master'*'running'*'https://'* ]]; then
         echo "" | tee -a ${LOG_FILE}
-        echo "Error: this machine is a part of an existing Kubernetes cluster, please detach it before running this installer." | tee -a ${LOG_FILE}
+        echo "Error: this machine is a part of an existing Kubernetes cluster, please use the update script or detach the k8s cluster before running this installer." | tee -a ${LOG_FILE}
         exit 1
         KUBECTL_EXISTS=true
       fi
