@@ -72,6 +72,7 @@ function showhelp {
    echo "  [--k8s-base-version] K8S base image version [default:1.0.5]"
    echo "  [--skip-k8s-base] Skip install k8s base"
    echo "  [--k8s-infra-version] K8S infra image [default:1.0.5]"
+   echo "  [--skip-k8s-infra] Skip install k8s infra charts"
    echo "  [-p|--product-name] Product name to install"
    echo "  [--product-version] Product version to install [default:1.23.1-5]"
    echo "  [--auto-install-product] auto install product"
@@ -125,6 +126,11 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --skip-k8s-infra)
+            SKIP_K8S_INFRA="true"
+        shift
+        continue
+        ;;        
         -p|--product-name)
         shift
             PRODUCT_NAME=${1:-$PRODUCT_NAME}
@@ -139,7 +145,7 @@ while test $# -gt 0; do
         ;;
         --auto-install-product)
         #shift
-            INSTALL_PRODUCT=${1:-$INSTALL_PRODUCT}
+            INSTALL_PRODUCT="true"
         shift
         continue
         ;;
@@ -209,23 +215,23 @@ function online_packages_installation() {
       true
   else
       if [ -x "$(command -v apt-get)" ]; then
-          set -e
+          set +e
           apt-get -qq update >>${LOG_FILE} 2>&1
+          set -e
           apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
           #apt-add-repository --yes --update ppa:ansible/ansible >>${LOG_FILE} 2>&1
           #apt-get -qq install -y ansible >>${LOG_FILE} 2>&1
-          set +e
       elif [ -x "$(command -v yum)" ]; then
-          set -e
+          set +e
           #yum install -y curl > /dev/null
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
           yum install -y epel-release >>${LOG_FILE} 2>&1
+          set -e
           #yum install -y python python-pip >>${LOG_FILE} 2>&1
           #pip install --upgrade pip >>${LOG_FILE} 2>&1
           #pip install markupsafe xmltodict pywinrm > /dev/null
           #yum install -y ansible >>${LOG_FILE} 2>&1
-          set +e
       fi
   fi
 }
@@ -259,9 +265,9 @@ function nvidia_drivers_installation() {
       apt-get update>>${LOG_FILE} 2>&1
       #echo "Remove old nvidia drivers if exist"
       #apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
-      set -e
+      
       apt-get install -y --no-install-recommends cuda-drivers=410.104-1 >>${LOG_FILE} 2>&1
-      set +e
+      
     fi
   elif [ -x "$(command -v yum)" ]; then
     #rpm -q --quiet nvidia-driver-410.104*
@@ -287,10 +293,10 @@ function nvidia_drivers_installation() {
         # --output /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       fi
       #yum remove -y *nvidia* cuda* >>${LOG_FILE} 2>&1
-      set -e
+      
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
-      set +e
+      
     fi
   fi
 }
@@ -303,7 +309,7 @@ function install_gravity() {
     echo "==                Installing Gravity, please wait...               ==" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
-    set -e
+    #set -e
     #if [[ $INSTALL_METHOD = "online" ]]; then
     #  curl -fSLo ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${LOG_FILE} >&2)
     #else
@@ -344,7 +350,7 @@ EOF
 function install_gravity_app() {
   echo "" | tee -a ${LOG_FILE}
   echo "=============================================================================================" | tee -a ${LOG_FILE}
-  echo "==            Installing App $1 version $2, please wait...                                 ==" | tee -a ${LOG_FILE}
+  echo "==            Installing App $1 version $2, please wait...                                   " | tee -a ${LOG_FILE}
   echo "=============================================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}  
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
@@ -357,14 +363,14 @@ function install_gravity_app() {
 function install_k8s_infra_app() {
   if [[ "$SKIP_K8S_INFRA" = false ]]; then
     install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
-    gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install | tee -a ${LOG_FILE}
+    gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install >>${LOG_FILE} 2>&1
   fi
 }
 
 function install_product_app() {
   if [[ "$SKIP_PRODUCT" = false ]]; then
     install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
-    gravity exec gravity app hook --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install | tee -a ${LOG_FILE}
+    gravity exec gravity app hook --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
   fi
 }
 
