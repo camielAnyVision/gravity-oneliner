@@ -116,11 +116,27 @@ function backup_secrets(){
 }
 
 function remove_nvidia_drivers(){
-  echo ""
+  if [ -x "$(command -v apt-get)" ]; then
+    if dpkg-query --show nvidia-driver-410 ; then
+      echo "already right version"
+    else
+      echo "Removing nvidia driver"
+    fi
+  elif [ -x "$(command -v yum)" ]; then
+    if rpm -q --quiet nvidia-driver-410*; then
+      echo "already right version"
+    else
+      echo "Removing nvidia driver"
+    fi
+  fi
 }
 
 function remove_nvidia_docker(){
-  echo ""
+  if [ -x "$(command -v apt-get)" ]; then
+
+  elif [ -x "$(command -v yum)" ]; then
+
+  fi
 }
 
 function disable_k3s(){
@@ -136,9 +152,7 @@ function disable_docker(){
   docker rm $(docker ps -aq)
   docker system prune -f
 
-
+  systemctl stop docker 
+  systemctl disable docker 
 }
 
-function remove_nvidia_drivers(){
-  echo ""
-}
