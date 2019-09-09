@@ -191,7 +191,7 @@ function download_files(){
     filename=$(echo "${url##*/}")
     if [ ! -f "${BASEDIR}/$filename" ]; then
       echo "Downloading $url" | tee -a ${LOG_FILE}
-      curl -fSsLO -C - $url >>${LOG_FILE} 2>&1 &
+      (curl -fSsLO -C - $url >>${LOG_FILE} 2>&1 ; echo "Download completed for $filename") &
     else
       echo "The File is already exist under: ${BASEDIR}/$filename" | tee -a ${LOG_FILE}
     fi
@@ -236,7 +236,10 @@ function nvidia_drivers_installation() {
   echo "==                Installing Nvidia Drivers, please wait...               ==" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}
-  nvidia_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader || true)
+  if [ -x "$(command -v nvidia-smi)" ]; then
+    nvidia_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader || true)
+  fi
+
   if [ -x "$(command -v apt-get)" ]; then
     if [[ "${nvidia_version}" == '410'* ]] ; then
       echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
@@ -318,6 +321,7 @@ function install_gravity() {
         --flavor=aio \
         --role=aio | tee -a ${LOG_FILE}
     cd ${BASEDIR}
+    source ~/.bashrc
   fi
 }
 
@@ -345,27 +349,23 @@ function install_gravity_app() {
   echo "" | tee -a ${LOG_FILE}  
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
   gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${LOG_FILE}
-  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
+  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2}
   gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
   
 }
 
 function install_k8s_infra_app() {
-
-  ## Install infra package
-  # if [[ $INSTALL_METHOD = "online" ]]; then
-  #   curl -fSLo ${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/k8s-infra/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz 2> >(tee -a ${LOG_FILE} >&2)
-  # fi
-  install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
-  gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install | tee -a ${LOG_FILE}
+  if [[ "$SKIP_K8S_INFRA" = false ]]; then
+    install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
+    gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install | tee -a ${LOG_FILE}
+  fi
 }
 
 function install_product_app() {
-  # if [[ $INSTALL_METHOD = "online" ]]; then
-  #   curl -fSLo ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz https://gravity-bundles.s3.eu-central-1.amazonaws.com/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz 2> >(tee -a ${LOG_FILE} >&2)
-  # fi
-  install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
-  gravity exec gravity app hook --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install | tee -a ${LOG_FILE}
+  if [[ "$SKIP_PRODUCT" = false ]]; then
+    install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
+    gravity exec gravity app hook --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install | tee -a ${LOG_FILE}
+  fi
 }
 
 function restore_secrets() {
