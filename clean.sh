@@ -111,8 +111,19 @@ function is_kubectl_exists() {
 }
 
 function backup_secrets(){
-  echo "Backup Secrets"
-
+  mkdir -p /opt/backup/secrets
+  echo "###########################"
+  echo "# Backing up secrets. . . #"
+  echo "###########################"
+  secrets_list=$(kubectl get secret | tail -n +2 | awk '{print $1}')
+  relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
+  for secret in $secrets_list
+  do
+    if [[ " ${relevant_secrets_list[@]} " =~ " ${secret} " ]]; then
+      echo "Backing up secret $secret"
+      kubectl get secret $secret -o yaml | grep -v "^  \(creation\|resourceVersion\|selfLink\|uid\)" > /opt/backup/secrets/$secret.yaml
+    fi
+  done
 }
 
 function remove_nvidia_drivers(){
