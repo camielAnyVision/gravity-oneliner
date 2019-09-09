@@ -35,6 +35,8 @@ SKIP_K8S_BASE=false
 SKIP_K8S_INFRA=false
 SKIP_PRODUCT=false
 SKIP_DRIVERS=false
+DOWNLOAD_ONLY=false
+SKIP_CLUSTER_CHECK=false
 
 echo "------ Staring Gravity installer $(date '+%Y-%m-%d %H:%M:%S')  ------" >${LOG_FILE} 2>&1
 
@@ -65,6 +67,8 @@ function showhelp {
    echo "OPTIONS:"
    echo "  [-i|--install-mode] Installation mode [default:aio, cluster]"
    echo "  [-m|--install-method] Installation method [default:online, airgap (need extra files on same dir as this script)]"
+   echo "  [--download-only] Download all the files to the current location"
+   echo "  [--skip-cluster-check] Skip verify if cluster is already installed"
    echo "  [--k8s-base-version] K8S base image version [default:1.0.5]"
    echo "  [--k8s-infra-version] K8S infra image [default:1.0.5]"
    echo "  [-p|--product-name] Product name to install"
@@ -93,6 +97,18 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --download-only)
+        #shift
+            DOWNLOAD_ONLY="true"
+        shift
+        continue
+        ;;
+        --skip-cluster-check)
+        #shift
+            SKIP_CLUSTER_CHECK="true"
+        shift
+        continue
+        ;;        
         -k|--k8s-base-version)
         shift
             K8S_BASE_VERSION=${1:-$K8S_BASE_VERSION}
@@ -118,7 +134,7 @@ while test $# -gt 0; do
         continue
         ;;
         --auto-install-product)
-        shift
+        #shift
             INSTALL_PRODUCT=${1:-$INSTALL_PRODUCT}
         shift
         continue
@@ -128,15 +144,17 @@ while test $# -gt 0; do
 done
 
 function is_kubectl_exists() {
-  ## Check if this machine is part of an existing Kubernetes cluster
-  if gravity status --quiet > /dev/null 2>&1; then
-    echo "Gravity cluster is already installed"  
-    if [ -x "$(command -v kubectl)" ]; then
-      if [[ $(kubectl cluster-info) == *'Kubernetes master'*'running'*'https://'* ]]; then
-        echo "" | tee -a ${LOG_FILE}
-        echo "Error: this machine is a part of an existing Kubernetes cluster, please use the update script or detach the k8s cluster before running this installer." | tee -a ${LOG_FILE}
-        exit 1
-        KUBECTL_EXISTS=true
+  if [ "${SKIP_CLUSTER_CHECK}" == "false" ]; then
+    ## Check if this machine is part of an existing Kubernetes cluster
+    if gravity status --quiet > /dev/null 2>&1; then
+      echo "Gravity cluster is already installed"  
+      if [ -x "$(command -v kubectl)" ]; then
+        if [[ $(kubectl cluster-info) == *'Kubernetes master'*'running'*'https://'* ]]; then
+          echo "" | tee -a ${LOG_FILE}
+          echo "Error: this machine is a part of an existing Kubernetes cluster, please use the update script or detach the k8s cluster before running this installer." | tee -a ${LOG_FILE}
+          exit 1
+          KUBECTL_EXISTS=true
+        fi
       fi
     fi
   fi
@@ -144,12 +162,13 @@ function is_kubectl_exists() {
 
 function is_tar_files_exists(){
     for file in ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz; do
-        if [[ ! -f $file ]] ; then
-            echo "Missing $file it's required for installation to success"
+        if [[ ! -f "${BASEDIR}/$file" ]] ; then
+            echo "Missing $file it's required for installation to success" | tee -a ${LOG_FILE}
             exit 1
         fi
     done
 }
+
 
 function download_files(){
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
@@ -167,8 +186,10 @@ function download_files(){
     # and disable the progress bar (-s)
     filename=$(echo "${url##*/}")
     if [ ! -f "${BASEDIR}/$filename" ]; then
-      echo "Downloading $url"
+      echo "Downloading $url" | tee -a ${LOG_FILE}
       curl -fSsLO -C - $url >>${LOG_FILE} 2>&1 &
+    else
+      echo "The File is already exist under: ${BASEDIR}/$filename" | tee -a ${LOG_FILE}
     fi
   done
   wait #wait for all background jobs to terminate
@@ -213,18 +234,18 @@ function nvidia_drivers_installation() {
   echo "" | tee -a ${LOG_FILE}  
   if [ -x "$(command -v apt-get)" ]; then
     if dpkg-query --show nvidia-driver-410 ; then
-      echo "nvidia driver nvidia-driver-410 already installed"
+      echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
     else
-      echo "Installing nvidia driver nvidia-driver-410"
+      echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
       if [[ $INSTALL_METHOD = "online" ]]; then
-        apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+        apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub >>${LOG_FILE} 2>&1
         sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
       else
-        mkdir -p /opt/packages
+        mkdir -p /opt/packages >>${LOG_FILE} 2>&1
         tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages >>${LOG_FILE} 2>&1
-        mkdir -p /etc/apt-orig
+        mkdir -p /etc/apt-orig >>${LOG_FILE} 2>&1
         rsync -q -a --ignore-existing /etc/apt/ /etc/apt-orig/ >>${LOG_FILE} 2>&1
-        rm -rf /etc/apt/sources.list.d/*
+        rm -rf /etc/apt/sources.list.d/* >>${LOG_FILE} 2>&1
         echo "deb [arch=amd64 trusted=yes allow-insecure=yes] http://$(hostname --ip-address | awk '{print $1}'):8085/ bionic main" > /etc/apt/sources.list
       fi
       apt-get update>>${LOG_FILE} 2>&1
@@ -237,9 +258,9 @@ function nvidia_drivers_installation() {
   elif [ -x "$(command -v yum)" ]; then
     #rpm -q --quiet nvidia-driver-410.104*
     if rpm -q --quiet nvidia-driver-410*; then
-      echo "nvidia driver nvidia-driver-410 already installed"
+      echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
     else
-      echo "Installing nvidia driver nvidia-driver-410"
+      echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
       
       if [[ $INSTALL_METHOD = "online" ]]; then
         yum install -y gcc kernel-devel >>${LOG_FILE} 2>&1
@@ -251,7 +272,7 @@ function nvidia_drivers_installation() {
       else
         # curl http://$(hostname --ip-address | awk '{print $1}')/${RHEL_PACKAGES_FILE_NAME} \
         # --output ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} >>${LOG_FILE} 2>&1
-        mkdir -p /tmp/drivers
+        mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
         tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
         
         # curl http://$(hostname --ip-address | awk '{print $1}')/NVIDIA-Linux-x86_64-410.104.run \
@@ -307,8 +328,8 @@ spec:
   password: "Passw0rd123"
   roles: ["@teleadmin"]
 EOF
-  gravity resource create admin.yaml
-  rm -f admin.yaml
+  gravity resource create admin.yaml >>${LOG_FILE} 2>&1
+  rm -f admin.yaml >>${LOG_FILE} 2>&1
 }
 
 function install_gravity_app() {
@@ -317,10 +338,10 @@ function install_gravity_app() {
   echo "==                Installing App $1 version $2, please wait...               ==" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}  
-  gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
-  gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${LOG_FILE}
-  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
-  gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
+  gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 >>${LOG_FILE} 2>&1
+  gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz >>${LOG_FILE} 2>&1
+  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2} >>${LOG_FILE} 2>&1
+  gravity exec gravity app export gravitational.io/${1}:${2} >>${LOG_FILE} 2>&1
   
 }
 
@@ -342,12 +363,20 @@ function install_product_app() {
   gravity exec gravity app hook --env=install_product=${INSTALL_PRODUCT} gravitational.io/${K8S_INFRA_NAME}:${PRODUCT_VERSION} install | tee -a ${LOG_FILE}
 }
 
-echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD"
+# function restore_secrets(){
+  
+# }
+
+echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 is_kubectl_exists
-echo $KUBECTL_EXISTS
 
 if [[ $INSTALL_METHOD = "online" ]]; then
   download_files
+  if [ "${DOWNLOAD_ONLY}" == "true" ]; then
+    echo "Download only is enabled" | tee -a ${LOG_FILE}
+    exit 0
+  fi
+  is_tar_files_exists
   online_packages_installation
   nvidia_drivers_installation
   install_gravity
