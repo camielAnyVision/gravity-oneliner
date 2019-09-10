@@ -20,6 +20,7 @@ K8S_INFRA_VERSION="1.0.5"
 
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.23.1-5"
+PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 
 # UBUNTU Options
 NVIDIA_DRIVERS_VERSION="410.104-1"
@@ -37,6 +38,7 @@ SKIP_PRODUCT=false
 SKIP_DRIVERS=false
 DOWNLOAD_ONLY=false
 SKIP_CLUSTER_CHECK=false
+MIGRATION_EXIST=false
 
 echo "------ Staring Gravity installer $(date '+%Y-%m-%d %H:%M:%S')  ------" >${LOG_FILE} 2>&1
 
@@ -69,6 +71,7 @@ function showhelp {
    echo "  [-m|--install-method] Installation method [default:online, airgap (need extra files on same dir as this script)]"
    echo "  [--download-only] Download all the files to the current location"
    echo "  [--skip-cluster-check] Skip verify if cluster is already installed"
+   echo "  [--base-url] Base url for downloading the files [default:https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
    echo "  [--k8s-base-version] K8S base image version [default:1.0.5]"
    echo "  [--skip-k8s-base] Skip install k8s base"
    echo "  [--k8s-infra-version] K8S infra image [default:1.0.5]"
@@ -76,6 +79,7 @@ function showhelp {
    echo "  [-p|--product-name] Product name to install"
    echo "  [--product-version] Product version to install [default:1.23.1-5]"
    echo "  [--auto-install-product] auto install product"
+   echo "  [--add-migration-chart] add also the migration chart"
    echo ""
 }
 
@@ -108,7 +112,13 @@ while test $# -gt 0; do
             SKIP_CLUSTER_CHECK="true"
         shift
         continue
-        ;;        
+        ;;
+        --base-url)
+        shift
+            S3_BUCKET_URL=${1:-$S3_BUCKET_URL}
+        shift
+        continue
+        ;;
         -k|--k8s-base-version)
         shift
             K8S_BASE_VERSION=${1:-$K8S_BASE_VERSION}
@@ -149,6 +159,12 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --add-migration-chart)
+        #shift
+            MIGRATION_EXIST="true"
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -171,12 +187,12 @@ function is_kubectl_exists() {
 }
 
 function is_tar_files_exists(){
-    for file in ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz; do
-        if [[ ! -f "${BASEDIR}/$file" ]] ; then
-            echo "Missing $file it's required for installation to success" | tee -a ${LOG_FILE}
-            exit 1
-        fi
-    done
+  for file in ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz; do
+      if [[ ! -f "${BASEDIR}/$file" ]] ; then
+          echo "Missing $file it's required for installation to success" | tee -a ${LOG_FILE}
+          exit 1
+      fi
+  done
 }
 
 
@@ -184,11 +200,22 @@ function download_files(){
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
 
   if [ -x "$(command -v apt-get)" ]; then
     declare -a PACKAGES_TO_DOWNLOAD=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
   else
     declare -a PACKAGES_TO_DOWNLOAD=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+  fi
+
+  # if curl --output /dev/null --silent --fail -r 0-0 "$K8S_PRODUCT_MIGRATION_URL"; then
+  #   PACKAGES_TO_DOWNLOAD+=("${K8S_PRODUCT_MIGRATION_URL}")
+  #   migration_exist="true"
+  # else
+  #   migration_exist="false"
+  # fi
+  if [ "${MIGRATION_EXIST}" == "true" ]; then
+    PACKAGES_TO_DOWNLOAD+=("${K8S_PRODUCT_MIGRATION_URL}")
   fi
 
   for url in "${PACKAGES_TO_DOWNLOAD[@]}"; do
@@ -361,16 +388,22 @@ function install_gravity_app() {
 }
 
 function install_k8s_infra_app() {
-  if [[ "$SKIP_K8S_INFRA" = false ]]; then
+  if [[ "$SKIP_K8S_INFRA" = false ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
     install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
     gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install >>${LOG_FILE} 2>&1
   fi
 }
 
 function install_product_app() {
-  if [[ "$SKIP_PRODUCT" = false ]]; then
+  if [[ "$SKIP_PRODUCT" = false ]] && [[ -f "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]]; then
     install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
     gravity exec gravity app hook --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
+    
+    if [ "$MIGRATION_EXIST" == "true" ] && [ -f "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" ] ; then
+      install_gravity_app ${PRODUCT_MIGRATION_NAME} ${PRODUCT_VERSION}
+      gravity exec gravity app hook --env=install_product=false gravitational.io/${PRODUCT_MIGRATION_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
+    fi
+
   fi
 }
 
