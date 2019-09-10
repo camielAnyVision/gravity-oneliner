@@ -146,6 +146,7 @@ function remove_nvidia_drivers(){
       echo "###############################"
       echo "# Removing Nvidia driver. . . #"
       echo "###############################"
+      ./$(ls -la | grep NVIDIA-Linux | awk '{print $NF}') --silent --no-install-compat32-libs --uninstall
     fi
   fi
 }
@@ -163,6 +164,7 @@ function remove_nvidia_docker(){
       echo "###############################"
       echo "# Removing Nvidia-Docker. . . #"
       echo "###############################"
+      yum remove -y nvidia*
   fi
 }
 
