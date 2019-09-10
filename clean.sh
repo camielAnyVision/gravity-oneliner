@@ -140,7 +140,7 @@ function remove_nvidia_drivers(){
       add-apt-repository -y --remove ppa:graphics-drivers/ppa
     fi
   elif [ -x "$(command -v yum)" ]; then
-    if rpm -q --quiet nvidia-driver-410*; then
+    if [ $(modinfo nvidia -F version) == "410.104" ]; then
       echo "Nvidia driver is already on the right version (410)"
     else
       echo "###############################"
