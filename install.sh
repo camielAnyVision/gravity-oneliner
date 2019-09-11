@@ -13,17 +13,16 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.5"
+K8S_BASE_VERSION="1.0.6"
 
 K8S_INFRA_NAME="k8s-infra"
-K8S_INFRA_VERSION="1.0.5"
+K8S_INFRA_VERSION="1.0.6"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.23.1-5"
+PRODUCT_VERSION="1.23.1-6"
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 
 # UBUNTU Options
-NVIDIA_DRIVERS_VERSION="410.104-1"
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
 APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
 # RHEL/CENTOS options
@@ -72,12 +71,12 @@ function showhelp {
    echo "  [--download-only] Download all the files to the current location"
    echo "  [--skip-cluster-check] Skip verify if cluster is already installed"
    echo "  [--base-url] Base url for downloading the files [default:https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
-   echo "  [--k8s-base-version] K8S base image version [default:1.0.5]"
+   echo "  [--k8s-base-version] K8S base image version [default:1.0.6]"
    echo "  [--skip-k8s-base] Skip install k8s base"
-   echo "  [--k8s-infra-version] K8S infra image [default:1.0.5]"
+   echo "  [--k8s-infra-version] K8S infra image [default:1.0.6]"
    echo "  [--skip-k8s-infra] Skip install k8s infra charts"
    echo "  [-p|--product-name] Product name to install"
-   echo "  [--product-version] Product version to install [default:1.23.1-5]"
+   echo "  [-v|--product-version] Product version to install [default:1.23.1-6]"
    echo "  [--auto-install-product] auto install product"
    echo "  [--add-migration-chart] add also the migration chart"
    echo ""
@@ -147,7 +146,7 @@ while test $# -gt 0; do
         shift
         continue
         ;;
-        -s|--product-version)
+        -v|--product-version)
         shift
             PRODUCT_VERSION=${1:-$PRODUCT_VERSION}
         shift
@@ -208,23 +207,15 @@ function download_files(){
     declare -a PACKAGES_TO_DOWNLOAD=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
   fi
 
-  # if curl --output /dev/null --silent --fail -r 0-0 "$K8S_PRODUCT_MIGRATION_URL"; then
-  #   PACKAGES_TO_DOWNLOAD+=("${K8S_PRODUCT_MIGRATION_URL}")
-  #   migration_exist="true"
-  # else
-  #   migration_exist="false"
-  # fi
   if [ "${MIGRATION_EXIST}" == "true" ]; then
     PACKAGES_TO_DOWNLOAD+=("${K8S_PRODUCT_MIGRATION_URL}")
   fi
 
   for url in "${PACKAGES_TO_DOWNLOAD[@]}"; do
-    # run the curl job in the background so we can start another job
-    # and disable the progress bar (-s)
     filename=$(echo "${url##*/}")
-    if [ ! -f "${BASEDIR}/$filename" ]; then
+    if [ ! -f "${BASEDIR}/${filename}" ]; then
       echo "Downloading $url" | tee -a ${LOG_FILE}
-      (curl -fSsLO -C - $url >>${LOG_FILE} 2>&1 ; echo "Download completed for $filename") &
+      (curl -fSsL -o "${BASEDIR}/${filename}.tmp" -C - $url >>${LOG_FILE} 2>&1 ; echo "Download completed for $filename" ; mv "${BASEDIR}/${filename}.tmp" "${BASEDIR}/${filename}" ) &
     else
       echo "The File is already exist under: ${BASEDIR}/$filename" | tee -a ${LOG_FILE}
     fi
@@ -354,7 +345,6 @@ function install_gravity() {
         --flavor=aio \
         --role=aio | tee -a ${LOG_FILE}
     cd ${BASEDIR}
-    source ~/.bashrc
   fi
 }
 
@@ -379,10 +369,17 @@ function install_gravity_app() {
   echo "=============================================================================================" | tee -a ${LOG_FILE}
   echo "==            Installing App $1 version $2, please wait...                                   " | tee -a ${LOG_FILE}
   echo "=============================================================================================" | tee -a ${LOG_FILE}
-  echo "" | tee -a ${LOG_FILE}  
+  echo "" | tee -a ${LOG_FILE}
+  echo "Connecting to Gravity Ops Center..." | tee -a ${LOG_FILE}
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
+  echo ""
+  echo "Importing App $1 ..." | tee -a ${LOG_FILE}
   gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${LOG_FILE}
+  echo ""
+  echo "Pulling App $1 ..." | tee -a ${LOG_FILE}
   gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2}
+  echo ""
+  echo "Exporting App $1 ..." | tee -a ${LOG_FILE}
   gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
   
 }
@@ -390,18 +387,24 @@ function install_gravity_app() {
 function install_k8s_infra_app() {
   if [[ "$SKIP_K8S_INFRA" = false ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
     install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
-    gravity exec gravity app hook --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install >>${LOG_FILE} 2>&1
+    echo ""
+    echo "Installing App $K8S_INFRA_NAME ..." | tee -a ${LOG_FILE}
+    gravity exec gravity app hook --debug --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install >>${LOG_FILE} 2>&1
   fi
 }
 
 function install_product_app() {
   if [[ "$SKIP_PRODUCT" = false ]] && [[ -f "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]]; then
+    echo ""
+    echo "Installing App $PRODUCT_NAME ..." | tee -a ${LOG_FILE}
     install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
-    gravity exec gravity app hook --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
+    gravity exec gravity app hook --debug --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
     
     if [ "$MIGRATION_EXIST" == "true" ] && [ -f "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" ] ; then
+      echo ""
+      echo "Installing App $PRODUCT_MIGRATION_NAME ..." | tee -a ${LOG_FILE}
       install_gravity_app ${PRODUCT_MIGRATION_NAME} ${PRODUCT_VERSION}
-      gravity exec gravity app hook --env=install_product=false gravitational.io/${PRODUCT_MIGRATION_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
+      gravity exec gravity app hook --debug --env=install_product=false gravitational.io/${PRODUCT_MIGRATION_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
     fi
 
   fi
@@ -416,10 +419,11 @@ function restore_secrets() {
       kubectl create secret -f /opt/backup/secrets/${secret}.yaml || true
     fi
   done
+  #rm -rf /opt/backup/secrets
 }
 
-echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 is_kubectl_exists
+echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 
 if [[ $INSTALL_METHOD = "online" ]]; then
   download_files
