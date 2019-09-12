@@ -139,7 +139,7 @@ while test $# -gt 0; do
             SKIP_K8S_INFRA="true"
         shift
         continue
-        ;;        
+        ;;
         -p|--product-name)
         shift
             PRODUCT_NAME=${1:-$PRODUCT_NAME}
@@ -172,7 +172,7 @@ function is_kubectl_exists() {
   if [ "${SKIP_CLUSTER_CHECK}" == "false" ]; then
     ## Check if this machine is part of an existing Kubernetes cluster
     if gravity status --quiet > /dev/null 2>&1; then
-      echo "Gravity cluster is already installed"  
+      echo "Gravity cluster is already installed"
       if [ -x "$(command -v kubectl)" ]; then
         if [[ $(kubectl cluster-info) == *'Kubernetes master'*'running'*'https://'* ]]; then
           echo "" | tee -a ${LOG_FILE}
@@ -228,7 +228,7 @@ function online_packages_installation() {
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "==                Installing Packages, please wait...               ==" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
-  echo "" | tee -a ${LOG_FILE}  
+  echo "" | tee -a ${LOG_FILE}
   if [ -x "$(command -v curl)" ] && [ -x "$(command -v ansible)" ]; then
       true
   else
@@ -283,9 +283,9 @@ function nvidia_drivers_installation() {
       apt-get update>>${LOG_FILE} 2>&1
       #echo "Remove old nvidia drivers if exist"
       #apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
-      
+
       apt-get install -y --no-install-recommends cuda-drivers=410.104-1 >>${LOG_FILE} 2>&1
-      
+
     fi
   elif [ -x "$(command -v yum)" ]; then
     #rpm -q --quiet nvidia-driver-410.104*
@@ -293,7 +293,7 @@ function nvidia_drivers_installation() {
       echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
     else
       echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
-      
+
       if [[ $INSTALL_METHOD = "online" ]]; then
         yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
         # if [ ! -f "/tmp/drivers/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run" ]; then
@@ -306,15 +306,15 @@ function nvidia_drivers_installation() {
         # --output ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} >>${LOG_FILE} 2>&1
         mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
         tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
-        
+
         # curl http://$(hostname --ip-address | awk '{print $1}')/NVIDIA-Linux-x86_64-410.104.run \
         # --output /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       fi
       #yum remove -y *nvidia* cuda* >>${LOG_FILE} 2>&1
-      
+
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
-      
+
     fi
   fi
 }
@@ -334,12 +334,13 @@ function install_gravity() {
     mkdir -p ${BASEDIR}/${K8S_BASE_NAME}
     tar -xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar -C ${BASEDIR}/${K8S_BASE_NAME} | tee -a ${LOG_FILE}
     #fi
-    
+
     cd ${BASEDIR}/${K8S_BASE_NAME}
     ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
         --cloud-provider=generic \
         --pod-network-cidr="10.244.0.0/16" \
         --service-cidr="10.100.0.0/16" \
+        --service-uid=5000 \
         --vxlan-port=8472 \
         --cluster=cluster.local \
         --flavor=aio \
@@ -381,7 +382,7 @@ function install_gravity_app() {
   echo ""
   echo "Exporting App $1 ..." | tee -a ${LOG_FILE}
   gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
-  
+
 }
 
 function install_k8s_infra_app() {
@@ -399,7 +400,7 @@ function install_product_app() {
     echo "Installing App $PRODUCT_NAME ..." | tee -a ${LOG_FILE}
     install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
     gravity exec gravity app hook --debug --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
-    
+
     if [ "$MIGRATION_EXIST" == "true" ] && [ -f "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" ] ; then
       echo ""
       echo "Installing App $PRODUCT_MIGRATION_NAME ..." | tee -a ${LOG_FILE}
