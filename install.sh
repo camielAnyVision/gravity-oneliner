@@ -13,7 +13,7 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.7"
+K8S_BASE_VERSION="1.0.8"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.6"
@@ -194,6 +194,18 @@ function is_tar_files_exists(){
   done
 }
 
+function install_aria2(){
+  ARIA2_VERSION="1.34.0"
+  ARIA2_URL="https://github.com/q3aql/aria2-static-builds/releases/download/v${ARIA2_VERSION}/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2"
+  if [ ! -x "$(command -v aria2c)" ]; then
+    curl -fSsL -o /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 ${ARIA2_URL} >>${LOG_FILE} 2>&1
+    tar jxf /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 >>${LOG_FILE} 2>&1
+    cd /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1
+    make install >>${LOG_FILE} 2>&1
+  fi
+}
+
+function join_by() { local IFS="$1"; shift; echo "$*"; }
 
 function download_files(){
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
@@ -202,25 +214,26 @@ function download_files(){
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
 
   if [ -x "$(command -v apt-get)" ]; then
-    declare -a PACKAGES_TO_DOWNLOAD=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+    declare -a PACKAGES=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
   else
-    declare -a PACKAGES_TO_DOWNLOAD=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+    declare -a PACKAGES=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
   fi
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
-    PACKAGES_TO_DOWNLOAD+=("${K8S_PRODUCT_MIGRATION_URL}")
+    PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
   fi
 
-  for url in "${PACKAGES_TO_DOWNLOAD[@]}"; do
+  declare -a PACKAGES_TO_DOWNLOAD
+
+  for url in "${PACKAGES[@]}"; do
     filename=$(echo "${url##*/}")
     if [ ! -f "${BASEDIR}/${filename}" ]; then
-      echo "Downloading $url" | tee -a ${LOG_FILE}
-      (curl -fSsL -o "${BASEDIR}/${filename}.tmp" -C - $url >>${LOG_FILE} 2>&1 ; echo "Download completed for $filename" ; mv "${BASEDIR}/${filename}.tmp" "${BASEDIR}/${filename}" ) &
-    else
-      echo "The File is already exist under: ${BASEDIR}/$filename" | tee -a ${LOG_FILE}
+      PACKAGES_TO_DOWNLOAD+=("${url}")
     fi
   done
-  wait #wait for all background jobs to terminate
+
+  DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
+  aria2c --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 ${DOWNLOAD_LIST}
 }
 
 function online_packages_installation() {
@@ -427,6 +440,7 @@ is_kubectl_exists
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 
 if [[ $INSTALL_METHOD = "online" ]]; then
+  install_aria2
   download_files
   if [ "${DOWNLOAD_ONLY}" == "true" ]; then
     echo "Download only is enabled" | tee -a ${LOG_FILE}
