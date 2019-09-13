@@ -199,9 +199,10 @@ function install_aria2(){
   ARIA2_URL="https://github.com/q3aql/aria2-static-builds/releases/download/v${ARIA2_VERSION}/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2"
   if [ ! -x "$(command -v aria2c)" ]; then
     curl -fSsL -o /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 ${ARIA2_URL} >>${LOG_FILE} 2>&1
-    tar jxf /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 >>${LOG_FILE} 2>&1
-    cd /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1
+    tar jxf /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 -C /tmp >>${LOG_FILE} 2>&1
+    pushd /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1
     make install >>${LOG_FILE} 2>&1
+    popd
   fi
 }
 
@@ -227,19 +228,21 @@ function download_files(){
 
   for url in "${PACKAGES[@]}"; do
     filename=$(echo "${url##*/}")
-    if [ ! -f "${BASEDIR}/${filename}" ]; then
+    if [ ! -f "${BASEDIR}/${filename}" ] || [ -f "${BASEDIR}/${filename}.aria2" ]; then
       PACKAGES_TO_DOWNLOAD+=("${url}")
     fi
   done
 
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
-  aria2c --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 ${DOWNLOAD_LIST}
+  if [ "${DOWNLOAD_LIST}" ]; then
+    aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 ${DOWNLOAD_LIST}
+  fi
 }
 
 function online_packages_installation() {
   echo "" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
-  echo "==                Installing Packages, please wait...               ==" | tee -a ${LOG_FILE}
+  echo "==                Installing Packages, please wait...              ==" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}
   if [ -x "$(command -v curl)" ] && [ -x "$(command -v ansible)" ]; then
@@ -249,7 +252,7 @@ function online_packages_installation() {
           set +e
           apt-get -qq update >>${LOG_FILE} 2>&1
           set -e
-          apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
+          apt-get -qq install -y --no-install-recommends make curl software-properties-common >>${LOG_FILE} 2>&1
           #apt-add-repository --yes --update ppa:ansible/ansible >>${LOG_FILE} 2>&1
           #apt-get -qq install -y ansible >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
@@ -257,7 +260,7 @@ function online_packages_installation() {
           #yum install -y curl > /dev/null
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-          yum install -y epel-release >>${LOG_FILE} 2>&1
+          yum install -y epel-release make >>${LOG_FILE} 2>&1
           set -e
           #yum install -y python python-pip >>${LOG_FILE} 2>&1
           #pip install --upgrade pip >>${LOG_FILE} 2>&1
@@ -270,7 +273,7 @@ function online_packages_installation() {
 function nvidia_drivers_installation() {
   echo "" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
-  echo "==                Installing Nvidia Drivers, please wait...               ==" | tee -a ${LOG_FILE}
+  echo "==            Installing Nvidia Drivers, please wait...            ==" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}
   if [ -x "$(command -v nvidia-smi)" ]; then
@@ -440,6 +443,7 @@ is_kubectl_exists
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 
 if [[ $INSTALL_METHOD = "online" ]]; then
+  online_packages_installation
   install_aria2
   download_files
   if [ "${DOWNLOAD_ONLY}" == "true" ]; then
@@ -447,7 +451,6 @@ if [[ $INSTALL_METHOD = "online" ]]; then
     exit 0
   fi
   is_tar_files_exists
-  online_packages_installation
   nvidia_drivers_installation
   install_gravity
   create_admin
