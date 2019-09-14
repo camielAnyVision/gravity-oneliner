@@ -25,10 +25,13 @@ PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
 APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
+UBUNTU_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-418.40.04-ubuntu18.04.tar.gz"
+
 # RHEL/CENTOS options
 RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
-RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
+RHEL_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-418.40.04-rhel7.tar.gz"
+
 
 INSTALL_PRODUCT=false
 SKIP_K8S_BASE=false
@@ -72,9 +75,10 @@ function showhelp {
    echo "  [--skip-cluster-check] Skip verify if cluster is already installed"
    echo "  [--base-url] Base url for downloading the files [default:https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
    echo "  [--k8s-base-version] K8S base image version [default:1.0.6]"
-   echo "  [--skip-k8s-base] Skip install k8s base"
+   echo "  [--skip-k8s-base] Skip installation of k8s base"
    echo "  [--k8s-infra-version] K8S infra image [default:1.0.6]"
-   echo "  [--skip-k8s-infra] Skip install k8s infra charts"
+   echo "  [--skip-k8s-infra] Skip installation of k8s infra charts"
+   echo "  [--skip-drivers] Skip installation of Nvidia drivers"
    echo "  [-p|--product-name] Product name to install"
    echo "  [-v|--product-version] Product version to install [default:1.23.1-6]"
    echo "  [--auto-install-product] auto install product"
@@ -109,6 +113,11 @@ while test $# -gt 0; do
         ;;
         --skip-cluster-check)
             SKIP_CLUSTER_CHECK="true"
+        shift
+        continue
+        ;;
+        --skip-drivers)
+            SKIP_DRIVERS="true"
         shift
         continue
         ;;
@@ -209,15 +218,17 @@ function install_aria2(){
 function join_by() { local IFS="$1"; shift; echo "$*"; }
 
 function download_files(){
-  K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
+  K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/on-demand-nvidia-driver/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
 
   if [ -x "$(command -v apt-get)" ]; then
-    declare -a PACKAGES=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+    #declare -a PACKAGES=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+    declare -a PACKAGES=("${UBUNTU_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
   else
-    declare -a PACKAGES=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+    #declare -a PACKAGES=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+    declare -a PACKAGES=("${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
   fi
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
@@ -270,71 +281,6 @@ function online_packages_installation() {
   fi
 }
 
-function nvidia_drivers_installation() {
-  echo "" | tee -a ${LOG_FILE}
-  echo "=====================================================================" | tee -a ${LOG_FILE}
-  echo "==            Installing Nvidia Drivers, please wait...            ==" | tee -a ${LOG_FILE}
-  echo "=====================================================================" | tee -a ${LOG_FILE}
-  echo "" | tee -a ${LOG_FILE}
-  if [ -x "$(command -v nvidia-smi)" ]; then
-    nvidia_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader || true)
-  fi
-
-  if [ -x "$(command -v apt-get)" ]; then
-    if [[ "${nvidia_version}" == '410'* ]] ; then
-      echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
-    else
-      echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
-      if [[ $INSTALL_METHOD = "online" ]]; then
-        apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub >>${LOG_FILE} 2>&1
-        sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
-      else
-        mkdir -p /opt/packages >>${LOG_FILE} 2>&1
-        tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages >>${LOG_FILE} 2>&1
-        mkdir -p /etc/apt-orig >>${LOG_FILE} 2>&1
-        rsync -q -a --ignore-existing /etc/apt/ /etc/apt-orig/ >>${LOG_FILE} 2>&1
-        rm -rf /etc/apt/sources.list.d/* >>${LOG_FILE} 2>&1
-        echo "deb [arch=amd64 trusted=yes allow-insecure=yes] http://$(hostname --ip-address | awk '{print $1}'):8085/ bionic main" > /etc/apt/sources.list
-      fi
-      apt-get update>>${LOG_FILE} 2>&1
-      #echo "Remove old nvidia drivers if exist"
-      #apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
-
-      apt-get install -y --no-install-recommends cuda-drivers=410.104-1 >>${LOG_FILE} 2>&1
-
-    fi
-  elif [ -x "$(command -v yum)" ]; then
-    #rpm -q --quiet nvidia-driver-410.104*
-    if [[ "${nvidia_version}" == '410'* ]] ; then
-      echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
-    else
-      echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
-
-      if [[ $INSTALL_METHOD = "online" ]]; then
-        yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
-        # if [ ! -f "/tmp/drivers/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run" ]; then
-        #   echo "Downloading NVIDIA drivers"
-        #   curl http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run \
-        #   --output ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-        # fi
-      else
-        # curl http://$(hostname --ip-address | awk '{print $1}')/${RHEL_PACKAGES_FILE_NAME} \
-        # --output ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} >>${LOG_FILE} 2>&1
-        mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
-        tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
-
-        # curl http://$(hostname --ip-address | awk '{print $1}')/NVIDIA-Linux-x86_64-410.104.run \
-        # --output /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-      fi
-      #yum remove -y *nvidia* cuda* >>${LOG_FILE} 2>&1
-
-      chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-      ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
-
-    fi
-  fi
-}
-
 function install_gravity() {
   ## Install gravity
   if [[ "$SKIP_K8S_BASE" = false ]]; then
@@ -384,46 +330,41 @@ EOF
 function install_gravity_app() {
   echo "" | tee -a ${LOG_FILE}
   echo "=============================================================================================" | tee -a ${LOG_FILE}
-  echo "==            Installing App $1 version $2, please wait...                                   " | tee -a ${LOG_FILE}
+  echo "==                          Installing package ${1}, please wait...                        == " | tee -a ${LOG_FILE}
   echo "=============================================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}
-  echo "Connecting to Gravity Ops Center..." | tee -a ${LOG_FILE}
-  gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
-  echo ""
-  echo "Importing App $1 ..." | tee -a ${LOG_FILE}
-  gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${LOG_FILE}
-  echo ""
-  echo "Pulling App $1 ..." | tee -a ${LOG_FILE}
-  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2}
-  echo ""
-  echo "Exporting App $1 ..." | tee -a ${LOG_FILE}
-  gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
+  PACKAGE_FILE="${1}"
+  shift
+  ${BASEDIR}/gravity_package_installer.sh "${PACKAGE_FILE}" "$@" | tee -a ${LOG_FILE}
+}
 
+function install_nvidia_driver() {
+  . /host/etc/os-release
+  ## USE ONLY MAJOR VERSION OF RHEL VERSION
+  if [[ "${VERSION_ID}" =~ ^[7,8]\.[0-9]+ ]]; then
+    VERSION=${VERSION_ID%%.*}
+  else
+    VERSION=${VERSION_ID}
+  fi
+  ## BUILD DISTRIBUTION STRING
+  DISTRIBUTION=${ID}${VERSION}
+  if [[ "$SKIP_DRIVERS" = false ]] && [[ -f "${BASEDIR}/nvidia-driver-418.40.04-${DISTRIBUTION}.tar.gz" ]]; then
+    install_gravity_app "${BASEDIR}/nvidia-driver-418.40.04-${DISTRIBUTION}.tar.gz"
+  fi
 }
 
 function install_k8s_infra_app() {
   if [[ "$SKIP_K8S_INFRA" = false ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
-    install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
-    echo ""
-    echo "Installing App $K8S_INFRA_NAME ..." | tee -a ${LOG_FILE}
-    gravity exec gravity app hook --debug --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install >>${LOG_FILE} 2>&1
+    install_gravity_app "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" --env=rancher=true
   fi
 }
 
 function install_product_app() {
   if [[ "$SKIP_PRODUCT" = false ]] && [[ -f "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]]; then
-    echo ""
-    echo "Installing App $PRODUCT_NAME ..." | tee -a ${LOG_FILE}
-    install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
-    gravity exec gravity app hook --debug --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
-
+    install_gravity_app "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" --env=install_product=${INSTALL_PRODUCT}
     if [ "$MIGRATION_EXIST" == "true" ] && [ -f "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" ] ; then
-      echo ""
-      echo "Installing App $PRODUCT_MIGRATION_NAME ..." | tee -a ${LOG_FILE}
-      install_gravity_app ${PRODUCT_MIGRATION_NAME} ${PRODUCT_VERSION}
-      gravity exec gravity app hook --debug --env=install_product=false gravitational.io/${PRODUCT_MIGRATION_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
+      install_gravity_app "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" --env=install_product=false
     fi
-
   fi
 }
 
@@ -451,10 +392,10 @@ if [[ $INSTALL_METHOD = "online" ]]; then
     exit 0
   fi
   is_tar_files_exists
-  nvidia_drivers_installation
   install_gravity
   create_admin
   restore_secrets
+  install_nvidia_driver
   install_k8s_infra_app
   install_product_app
 else
@@ -462,7 +403,7 @@ else
   install_gravity
   create_admin
   restore_secrets
+  install_nvidia_driver
   install_k8s_infra_app
-  nvidia_drivers_installation
   install_product_app
 fi
