@@ -32,7 +32,6 @@ RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 RHEL_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-418.40.04-rhel7.tar.gz"
 
-
 INSTALL_PRODUCT=false
 SKIP_K8S_BASE=false
 SKIP_K8S_INFRA=false
@@ -222,6 +221,8 @@ function download_files(){
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
+  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/master/gravity_package_installer.sh"
+  YQ_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/nvidia-driver/yq"
 
   if [ -x "$(command -v apt-get)" ]; then
     #declare -a PACKAGES=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
@@ -230,6 +231,8 @@ function download_files(){
     #declare -a PACKAGES=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
     declare -a PACKAGES=("${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
   fi
+
+  PACKAGES+=("${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
     PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
@@ -339,7 +342,7 @@ function install_gravity_app() {
 }
 
 function install_nvidia_driver() {
-  . /host/etc/os-release
+  . /etc/os-release
   ## USE ONLY MAJOR VERSION OF RHEL VERSION
   if [[ "${VERSION_ID}" =~ ^[7,8]\.[0-9]+ ]]; then
     VERSION=${VERSION_ID%%.*}
