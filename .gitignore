@@ -2,3 +2,4 @@
 .vscode
 **tar**
 anv-base-k8s/
+*.log

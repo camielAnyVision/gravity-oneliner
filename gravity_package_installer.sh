@@ -10,7 +10,7 @@ if [ $PACKAGE_CONTENT ]; then
   printf "Connecting to Gravity Ops Center...\n"
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123
   printf "Pushing application to Gravity Ops Center (background process)...\n"
-  nohup gravity app import --force --insecure --ops-url=https://localhost:3009 $PACKAGE >> gravity_app_import.log 2>&1 &
+  nohup gravity app import --force --insecure --ops-url=https://localhost:3009 $PACKAGE >> /var/log/gravity_app_import.log 2>&1 &
   printf "Generating application string...\n"
   APP_VERSION=$(timeout 0.3 tar xf $PACKAGE resources/app.yaml --to-command './yq r - metadata.resourceVersion; true')
   APP_NAME=$(timeout 0.3 tar xf $PACKAGE resources/Chart.yaml --to-command './yq r - metadata.name; true')
