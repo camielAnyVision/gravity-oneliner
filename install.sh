@@ -331,11 +331,6 @@ EOF
 }
 
 function install_gravity_app() {
-  echo "" | tee -a ${LOG_FILE}
-  echo "=============================================================================================" | tee -a ${LOG_FILE}
-  echo "==                          Installing package ${1}, please wait...                        == " | tee -a ${LOG_FILE}
-  echo "=============================================================================================" | tee -a ${LOG_FILE}
-  echo "" | tee -a ${LOG_FILE}
   PACKAGE_FILE="${1}"
   shift
   ${BASEDIR}/gravity_package_installer.sh "${PACKAGE_FILE}" "$@" | tee -a ${LOG_FILE}
