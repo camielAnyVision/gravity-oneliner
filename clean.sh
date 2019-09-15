@@ -47,46 +47,6 @@ function showhelp {
   echo ""
 }
 
-POSITIONAL=()
-while test $# -gt 0; do
-    key="$1"
-    case $key in
-        -h|help|--help)
-        showhelp
-        exit 0
-        ;;
-        -a|--all)
-        backup_secrets
-        disable_k3s
-        disable_docker
-        remove_nvidia_docker
-        remove_nvidia_drivers
-        exit 0
-        ;;
-        -s|--backup-secrets)
-        backup_secrets
-        exit 0
-        ;;
-        -k|--disable-k3s)
-        disable_k3s
-        exit 0
-        ;;
-        -d|--disable-docker)
-        disable_docker
-        exit 0
-        ;;
-        -n|--remove-nvidia-docker)
-        remove_nvidia_docker
-        exit 0
-        ;;
-        -v|--remove-nvidia-drivers)
-        remove_nvidia_drivers
-        exit 0
-        ;;
-    esac
-    break
-done
-
 function is_kubectl_exists() {
   ## Check if this machine is part of an existing Kubernetes cluster
   if gravity status --quiet > /dev/null 2>&1; then
@@ -181,6 +141,46 @@ function disable_docker(){
   systemctl stop docker
   systemctl disable docker
 }
+
+POSITIONAL=()
+while test $# -gt 0; do
+    key="$1"
+    case $key in
+        -h|help|--help)
+        showhelp
+        exit 0
+        ;;
+        -a|--all)
+        backup_secrets
+        disable_k3s
+        disable_docker
+        remove_nvidia_docker
+        remove_nvidia_drivers
+        exit 0
+        ;;
+        -s|--backup-secrets)
+        backup_secrets
+        exit 0
+        ;;
+        -k|--disable-k3s)
+        disable_k3s
+        exit 0
+        ;;
+        -d|--disable-docker)
+        disable_docker
+        exit 0
+        ;;
+        -n|--remove-nvidia-docker)
+        remove_nvidia_docker
+        exit 0
+        ;;
+        -v|--remove-nvidia-drivers)
+        remove_nvidia_drivers
+        exit 0
+        ;;
+    esac
+    break
+done
 
 # if [[ $BACKUP_SECRETS ]]; then
 #   backup_secrets
