@@ -56,40 +56,32 @@ while test $# -gt 0; do
         exit 0
         ;;
         -a|--all)
-        shift
-            ALL=${1:-false}
-        shift
-        continue
+        backup_secrets
+        disable_k3s
+        disable_docker
+        remove_nvidia_docker
+        remove_nvidia_drivers
+        exit 0
         ;;
         -s|--backup-secrets)
-        shift
-            BACKUP_SECRETS=${1:-false}
-        shift
-        continue
+        backup_secrets
+        exit 0
         ;;
         -k|--disable-k3s)
-        shift
-            DISABLE_K3S=${1:-false}
-        shift
-        continue
+        disable_k3s
+        exit 0
         ;;
         -d|--disable-docker)
-        shift
-            DISABLE_DOCKER=${1:-false}
-        shift
-        continue
+        disable_docker
+        exit 0
         ;;
         -n|--remove-nvidia-docker)
-        shift
-            REMOVE_NVIDIA_DOCKER=${1:-false}
-        shift
-        continue
+        remove_nvidia_docker
+        exit 0
         ;;
         -v|--remove-nvidia-drivers)
-        shift
-            REMOVE_NVIDIA_DRIVERS=${1:-false}
-        shift
-        continue
+        remove_nvidia_drivers
+        exit 0
         ;;
     esac
     break
@@ -190,21 +182,21 @@ function disable_docker(){
   systemctl disable docker
 }
 
-if [[ $BACKUP_SECRETS ]]; then
-  backup_secrets
-elif [[ $DISABLE_K3S ]]; then
-  disable_k3s
-elif [[ $DISABLE_DOCKER ]]; then
-  disable_docker
-elif [[ $REMOVE_NVIDIA_DOCKER ]]; then
-  remove_nvidia_docker
-elif [[ $REMOVE_NVIDIA_DRIVERS ]]; then
-  remove_nvidia_drivers
-elif [[ $ALL ]]; then
-  backup_secrets
-  disable_k3s
-  disable_docker
-  remove_nvidia_docker
-  remove_nvidia_drivers
-fi
+# if [[ $BACKUP_SECRETS ]]; then
+#   backup_secrets
+# elif [[ $DISABLE_K3S ]]; then
+#   disable_k3s
+# elif [[ $DISABLE_DOCKER ]]; then
+#   disable_docker
+# elif [[ $REMOVE_NVIDIA_DOCKER ]]; then
+#   remove_nvidia_docker
+# elif [[ $REMOVE_NVIDIA_DRIVERS ]]; then
+#   remove_nvidia_drivers
+# elif [[ $ALL ]]; then
+#   backup_secrets
+#   disable_k3s
+#   disable_docker
+#   remove_nvidia_docker
+#   remove_nvidia_drivers
+# fi
 
