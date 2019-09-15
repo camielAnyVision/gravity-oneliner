@@ -126,6 +126,7 @@ function disable_k3s {
   echo "###################################"
   systemctl stop k3s
   systemctl disable k3s
+  k3s-uninstall.sh
 }
 
 function disable_docker {
@@ -152,8 +153,8 @@ while test $# -gt 0; do
         ;;
         -a|--all)
         backup_secrets
-        disable_k3s
         disable_docker
+        disable_k3s
         remove_nvidia_docker
         remove_nvidia_drivers
         exit 0
@@ -181,21 +182,3 @@ while test $# -gt 0; do
     esac
     break
 done
-
-# if [[ $BACKUP_SECRETS ]]; then
-#   backup_secrets
-# elif [[ $DISABLE_K3S ]]; then
-#   disable_k3s
-# elif [[ $DISABLE_DOCKER ]]; then
-#   disable_docker
-# elif [[ $REMOVE_NVIDIA_DOCKER ]]; then
-#   remove_nvidia_docker
-# elif [[ $REMOVE_NVIDIA_DRIVERS ]]; then
-#   remove_nvidia_drivers
-# elif [[ $ALL ]]; then
-#   backup_secrets
-#   disable_k3s
-#   disable_docker
-#   remove_nvidia_docker
-#   remove_nvidia_drivers
-# fi
