@@ -47,7 +47,7 @@ function showhelp {
   echo ""
 }
 
-function is_kubectl_exists() {
+function is_kubectl_exists {
   ## Check if this machine is part of an existing Kubernetes cluster
   if gravity status --quiet > /dev/null 2>&1; then
     echo "Gravity cluster is already installed"
@@ -62,7 +62,7 @@ function is_kubectl_exists() {
   fi
 }
 
-function backup_secrets(){
+function backup_secrets {
   mkdir -p /opt/backup/secrets
   echo "###########################"
   echo "# Backing up secrets. . . #"
@@ -79,7 +79,7 @@ function backup_secrets(){
 
 }
 
-function remove_nvidia_drivers(){
+function remove_nvidia_drivers {
   if [ -x "$(command -v apt-get)" ]; then
     if dpkg-query --show nvidia-driver-410 ; then
       echo "Nvidia driver is already on the right version (410)"
@@ -103,7 +103,7 @@ function remove_nvidia_drivers(){
   fi
 }
 
-function remove_nvidia_docker(){
+function remove_nvidia_docker {
   if [ -x "$(command -v apt-get)" ]; then
     if  [ -x "$(command -v nvidia-docker)" ]; then
       echo "###############################"
@@ -120,7 +120,7 @@ function remove_nvidia_docker(){
   fi
 }
 
-function disable_k3s(){
+function disable_k3s {
   echo "###################################"
   echo "# Stopping and disabling K3S. . . #"
   echo "###################################"
@@ -128,7 +128,7 @@ function disable_k3s(){
   systemctl disable k3s
 }
 
-function disable_docker(){
+function disable_docker {
   echo "############################################"
   echo "# Killing and removing all containers. . . #"
   echo "############################################"
