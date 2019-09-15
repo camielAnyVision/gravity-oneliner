@@ -141,6 +141,11 @@ function disable_docker {
   echo "######################################"
   systemctl stop docker
   systemctl disable docker
+  if [ -x "$(command -v apt-get)" ]; then
+    apt remove -y --purge docker*
+  elif [ -x "$(command -v yum)" ]; then
+    yum remove -y docker*
+  fi
 }
 
 POSITIONAL=()
