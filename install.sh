@@ -209,7 +209,15 @@ function install_aria2(){
     curl -fSsL -o /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 ${ARIA2_URL} >>${LOG_FILE} 2>&1
     tar jxf /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 -C /tmp >>${LOG_FILE} 2>&1
     pushd /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1
-    make install >>${LOG_FILE} 2>&1
+    PREFIX=/usr
+    #mkdir -p /etc/ssl/certs/
+    mkdir -p ${PREFIX}/share/man/man1/
+    cp aria2c ${PREFIX}/bin
+    cp man-aria2c ${PREFIX}/share/man/man1/aria2c.1
+    #cp ca-certificates.crt /etc/ssl/certs/
+    chmod 755 ${PREFIX}/bin/aria2c
+    chmod 644 ${PREFIX}/share/man/man1/aria2c.1
+    #chmod 644 /etc/ssl/certs/ca-certificates.crt
     popd
   fi
 }
@@ -266,7 +274,7 @@ function online_packages_installation() {
           set +e
           apt-get -qq update >>${LOG_FILE} 2>&1
           set -e
-          apt-get -qq install -y --no-install-recommends make curl software-properties-common >>${LOG_FILE} 2>&1
+          apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
           #apt-add-repository --yes --update ppa:ansible/ansible >>${LOG_FILE} 2>&1
           #apt-get -qq install -y ansible >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
@@ -274,7 +282,7 @@ function online_packages_installation() {
           #yum install -y curl > /dev/null
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-          yum install -y epel-release make >>${LOG_FILE} 2>&1
+          yum install -y epel-release >>${LOG_FILE} 2>&1
           set -e
           #yum install -y python python-pip >>${LOG_FILE} 2>&1
           #pip install --upgrade pip >>${LOG_FILE} 2>&1
@@ -346,7 +354,7 @@ function install_nvidia_driver() {
   fi
   ## BUILD DISTRIBUTION STRING
   DISTRIBUTION=${ID}${VERSION}
-  if [[ "$SKIP_DRIVERS" = false ]] && [[ -f "${BASEDIR}/nvidia-driver-418.40.04-${DISTRIBUTION}.tar.gz" ]]; then
+  if [[ -f "${BASEDIR}/nvidia-driver-418.40.04-${DISTRIBUTION}.tar.gz" ]]; then
     install_gravity_app "${BASEDIR}/nvidia-driver-418.40.04-${DISTRIBUTION}.tar.gz"
   fi
 }
@@ -393,7 +401,9 @@ if [[ $INSTALL_METHOD = "online" ]]; then
   install_gravity
   create_admin
   restore_secrets
-  install_nvidia_driver
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
+    install_nvidia_driver
+  fi
   install_k8s_infra_app
   install_product_app
 else
@@ -401,7 +411,9 @@ else
   install_gravity
   create_admin
   restore_secrets
-  install_nvidia_driver
   install_k8s_infra_app
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
+    install_nvidia_driver
+  fi
   install_product_app
 fi
