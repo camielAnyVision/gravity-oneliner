@@ -153,8 +153,8 @@ while test $# -gt 0; do
         ;;
         -a|--all)
         backup_secrets
-        disable_docker
         disable_k3s
+        disable_docker
         remove_nvidia_docker
         remove_nvidia_drivers
         exit 0
