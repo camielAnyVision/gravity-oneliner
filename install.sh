@@ -444,14 +444,13 @@ if [[ $INSTALL_METHOD = "online" ]]; then
     exit 0
   fi
   is_tar_files_exists
-  online_packages_installation
-  if [ "${SKIP_DRIVERS}" == "false" ]; then
-    nvidia_drivers_installation
-  fi
   install_gravity
   create_admin
   restore_secrets
   install_k8s_infra_app
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
+    nvidia_drivers_installation
+  fi
   install_product_app
 else
   is_tar_files_exists
