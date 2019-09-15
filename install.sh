@@ -13,7 +13,7 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.7"
+K8S_BASE_VERSION="1.0.8"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.6"
