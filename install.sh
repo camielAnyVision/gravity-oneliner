@@ -228,7 +228,7 @@ function download_files(){
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/master/gravity_package_installer.sh"
-  YQ_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/nvidia-driver/yq"
+  YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
@@ -255,6 +255,11 @@ function download_files(){
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
     aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 ${DOWNLOAD_LIST}
+  fi
+  
+  ## RENAME DOWNLOADED YQ
+  if [ -f yq_linux_amd64 ]; then
+    mv yq_linux_amd64 yq
   fi
   
   ## ALLOW EXECUTION
