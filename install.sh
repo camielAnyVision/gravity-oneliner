@@ -231,12 +231,12 @@ function download_files(){
   YQ_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/nvidia-driver/yq"
 
   ## SHARED PACKAGES TO DOWNLOAD
-  declare -a PACKAGES+=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
+  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
 
   if [ -x "$(command -v apt-get)" ]; then
-    PACKAGES=("${APT_REPO_FILE_URL}")
+    PACKAGES+=("${APT_REPO_FILE_URL}")
   else
-    PACKAGES=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}")
+    PACKAGES+=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}")
   fi
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
