@@ -230,13 +230,14 @@ function download_files(){
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/nvidia-driver/yq"
 
-  if [ -x "$(command -v apt-get)" ]; then
-    declare -a PACKAGES_TO_DOWNLOAD=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
-  else
-    declare -a PACKAGES_TO_DOWNLOAD=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
-  fi
+  ## SHARED PACKAGES TO DOWNLOAD
+  declare -a PACKAGES+=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
 
-  PACKAGES+=("${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
+  if [ -x "$(command -v apt-get)" ]; then
+    PACKAGES=("${APT_REPO_FILE_URL}")
+  else
+    PACKAGES=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}")
+  fi
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
     PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
@@ -246,9 +247,7 @@ function download_files(){
 
   for url in "${PACKAGES[@]}"; do
     filename=$(echo "${url##*/}")
-    if [ -f "${BASEDIR}/${filename}.aria2" ]; then
-      PACKAGES_TO_DOWNLOAD+=("${url}")
-    elif [ ! -f "${BASEDIR}/${filename}" ]; then
+    if [ ! -f "${BASEDIR}/${filename}" ] || [ -f "${BASEDIR}/${filename}.aria2" ]; then
       PACKAGES_TO_DOWNLOAD+=("${url}")
     fi
   done
@@ -257,6 +256,9 @@ function download_files(){
   if [ "${DOWNLOAD_LIST}" ]; then
     aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 ${DOWNLOAD_LIST}
   fi
+  
+  ## ALLOW EXECUTION
+  chmod +x yq *.sh
 }
 
 function online_packages_installation() {
