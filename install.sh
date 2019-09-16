@@ -232,15 +232,14 @@ function download_files(){
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/nvidia-driver/yq"
 
-  if [ -x "$(command -v apt-get)" ]; then
-    #declare -a PACKAGES=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
-    declare -a PACKAGES=("${UBUNTU_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
-  else
-    #declare -a PACKAGES=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
-    declare -a PACKAGES=("${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
-  fi
+  ## SHARED PACKAGES TO DOWNLOAD
+  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
 
-  PACKAGES+=("${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
+  if [ -x "$(command -v apt-get)" ]; then
+    PACKAGES+=("${UBUNTU_NVIDIA_DRIVER}")
+  else
+    PACKAGES+=("${RHEL_NVIDIA_DRIVER}")
+  fi
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
     PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
@@ -259,6 +258,9 @@ function download_files(){
   if [ "${DOWNLOAD_LIST}" ]; then
     aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 ${DOWNLOAD_LIST}
   fi
+  
+  ## ALLOW EXECUTION
+  chmod +x yq *.sh
 }
 
 function online_packages_installation() {
