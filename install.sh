@@ -246,7 +246,9 @@ function download_files(){
 
   for url in "${PACKAGES[@]}"; do
     filename=$(echo "${url##*/}")
-    if [ ! -f "${BASEDIR}/${filename}" ] || [ -f "${BASEDIR}/${filename}.aria2" ]; then
+    if [ -f "${BASEDIR}/${filename}.aria2" ]; then
+      PACKAGES_TO_DOWNLOAD+=("${url}")
+    elif [ ! -f "${BASEDIR}/${filename}" ]; then
       PACKAGES_TO_DOWNLOAD+=("${url}")
     fi
   done
