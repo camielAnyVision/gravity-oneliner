@@ -16,7 +16,7 @@ K8S_BASE_NAME="anv-base-k8s"
 K8S_BASE_VERSION="1.0.9"
 
 K8S_INFRA_NAME="k8s-infra"
-K8S_INFRA_VERSION="1.0.6"
+K8S_INFRA_VERSION="1.0.7"
 
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.24.0-12"
@@ -73,7 +73,7 @@ function showhelp {
    echo "  [--base-url] Base url for downloading the files [default:https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
    echo "  [--k8s-base-version] K8S base image version [default:1.0.6]"
    echo "  [--skip-k8s-base] Skip install k8s base"
-   echo "  [--k8s-infra-version] K8S infra image [default:1.0.6]"
+   echo "  [--k8s-infra-version] K8S infra image [default:1.0.7]"
    echo "  [--skip-k8s-infra] Skip install k8s infra charts"
    echo "  [-p|--product-name] Product name to install"
    echo "  [-v|--product-version] Product version to install [default:1.23.1-6]"
