@@ -285,6 +285,7 @@ function nvidia_drivers_installation() {
       #apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
 
       apt-get install -y --no-install-recommends cuda-drivers=410.104-1 >>${LOG_FILE} 2>&1
+      nvidia_installed=true
 
     fi
   elif [ -x "$(command -v yum)" ]; then
@@ -314,6 +315,7 @@ function nvidia_drivers_installation() {
 
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
+      nvidia_installed=true
 
     fi
   fi
@@ -423,6 +425,7 @@ function restore_secrets() {
   #rm -rf /opt/backup/secrets
 }
 
+
 is_kubectl_exists
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 
@@ -449,3 +452,12 @@ else
   nvidia_drivers_installation
   install_product_app
 fi
+
+echo "=============================================================================================" | tee -a ${LOG_FILE}
+echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
+  
+if [ $nvidia_installed ]; then
+  echo "==                   New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
+fi
+echo "=============================================================================================" | tee -a ${LOG_FILE}
+
