@@ -227,9 +227,9 @@ function download_files(){
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
-  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/ziv-patch/gravity_package_installer.sh"
+  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
-  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/ziv-patch/install.sh"
+  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
@@ -332,7 +332,24 @@ function nvidia_drivers_installation() {
 
     fi
   elif [ -x "$(command -v yum)" ]; then
-    #rpm -q --quiet nvidia-driver-410.104*
+    
+    x_exist=$(pgrep -x X)
+
+    if [ "${x_exist}" != "" ]; then
+      echo "Error: You are runnning X server (Desktop GUI). please change to run level 3 in order to stop X server and run again the script" | tee -a ${LOG_FILE}
+      echo "In order to diable X server (Desktop GUI)" | tee -a ${LOG_FILE}
+      echo "1) systemctl set-default multi-user.target"
+      echo "2) tee /etc/modules-load.d/ipmi.conf <<< 'ipmi_msghandler'"
+      echo "3) tee /etc/modprobe.d/blacklist-nouveau.conf <<< 'blacklist nouveau'"
+      echo "4) tee -a /etc/modprobe.d/blacklist-nouveau.conf <<< 'options nouveau modeset=0'"
+      echo "5) dracut -f"
+      echo "6) reboot"
+      echo "7) run the script again"
+      echo "In order to re-enable X server (Desktop GUI)"
+      echo "systemctl set-default graphical.target && reboot"
+      exit 1
+    fi
+
     if [[ "${nvidia_version}" == '410'* ]] ; then
       echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
     else
@@ -340,25 +357,12 @@ function nvidia_drivers_installation() {
 
       if [[ $INSTALL_METHOD = "online" ]]; then
         yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
-        # if [ ! -f "/tmp/drivers/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run" ]; then
-        #   echo "Downloading NVIDIA drivers"
-        #   curl http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run \
-        #   --output ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-        # fi
       else
-        # curl http://$(hostname --ip-address | awk '{print $1}')/${RHEL_PACKAGES_FILE_NAME} \
-        # --output ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} >>${LOG_FILE} 2>&1
         mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
         tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
-
-        # curl http://$(hostname --ip-address | awk '{print $1}')/NVIDIA-Linux-x86_64-410.104.run \
-        # --output /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       fi
-      #yum remove -y *nvidia* cuda* >>${LOG_FILE} 2>&1
-
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-      ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs --no-x-check >>${LOG_FILE} 2>&1
-
+      ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
     fi
   fi
 }
