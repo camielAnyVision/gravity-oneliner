@@ -19,7 +19,7 @@ K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.7"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-12"
+PRODUCT_VERSION="1.24.0-13"
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 
 # UBUNTU Options
@@ -222,11 +222,17 @@ function install_aria2(){
 
 function join_by() { local IFS="$1"; shift; echo "$*"; }
 
-function download_files(){
+function download_files() {
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==                Downloading Packages, please wait...             ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}
+
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
-  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
-  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/on-demand-gravity-1.24.0/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/on-demand-gravity-1.24.0/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
@@ -332,14 +338,14 @@ function nvidia_drivers_installation() {
     if [ "${x_exist}" != "" ]; then
       echo "Error: You are runnning X server (Desktop GUI). please change to run level 3 in order to stop X server and run again the script" | tee -a ${LOG_FILE}
       echo "In order to diable X server (Desktop GUI)" | tee -a ${LOG_FILE}
-      echo "1) systemctl set-default multi-user.target"
-      echo "2) tee /etc/modprobe.d/blacklist-nouveau.conf <<< 'blacklist nouveau'"
-      echo "3) tee -a /etc/modprobe.d/blacklist-nouveau.conf <<< 'options nouveau modeset=0'"
-      echo "4) dracut -f"
-      echo "5) reboot"
-      echo "6) run the script again"
-      echo "In order to re-enable X server (Desktop GUI)"
-      echo "systemctl set-default graphical.target && reboot"
+      echo "1) systemctl set-default multi-user.target" | tee -a ${LOG_FILE}
+      echo "2) tee /etc/modprobe.d/blacklist-nouveau.conf <<< 'blacklist nouveau'" | tee -a ${LOG_FILE}
+      echo "3) tee -a /etc/modprobe.d/blacklist-nouveau.conf <<< 'options nouveau modeset=0'" | tee -a ${LOG_FILE}
+      echo "4) dracut -f" | tee -a ${LOG_FILE}
+      echo "5) reboot" | tee -a ${LOG_FILE}
+      echo "6) run the script again" | tee -a ${LOG_FILE}
+      echo "In order to re-enable X server (Desktop GUI)" | tee -a ${LOG_FILE}
+      echo "systemctl set-default graphical.target && reboot" | tee -a ${LOG_FILE}
       exit 1
     fi
 
@@ -369,13 +375,9 @@ function install_gravity() {
     echo "==                Installing Gravity, please wait...               ==" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
-    #set -e
-    #if [[ $INSTALL_METHOD = "online" ]]; then
-    #  curl -fSLo ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${LOG_FILE} >&2)
-    #else
+
     mkdir -p ${BASEDIR}/${K8S_BASE_NAME}
     tar -xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar -C ${BASEDIR}/${K8S_BASE_NAME} | tee -a ${LOG_FILE}
-    #fi
 
     cd ${BASEDIR}/${K8S_BASE_NAME}
     ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
