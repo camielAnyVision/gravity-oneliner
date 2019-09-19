@@ -16,10 +16,10 @@ K8S_BASE_NAME="anv-base-k8s"
 K8S_BASE_VERSION="1.0.10"
 
 K8S_INFRA_NAME="k8s-infra"
-K8S_INFRA_VERSION="1.0.6"
+K8S_INFRA_VERSION="1.0.7"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-6"
+PRODUCT_VERSION="1.24.0-12"
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 
 # UBUNTU Options
@@ -322,6 +322,7 @@ function nvidia_drivers_installation() {
       #apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
 
       apt-get install -y --no-install-recommends cuda-drivers=410.104-1 >>${LOG_FILE} 2>&1
+      nvidia_installed=true
 
     fi
   elif [ -x "$(command -v yum)" ]; then
@@ -355,6 +356,7 @@ function nvidia_drivers_installation() {
       fi
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
+      nvidia_installed=true
     fi
   fi
 }
@@ -438,6 +440,7 @@ function restore_secrets() {
   #rm -rf /opt/backup/secrets
 }
 
+
 is_kubectl_exists
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 
@@ -469,3 +472,12 @@ else
   fi
   install_product_app
 fi
+
+
+echo "=============================================================================================" | tee -a ${LOG_FILE}
+echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
+  
+if [ $nvidia_installed ]; then
+  echo "==                   New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
+fi
+echo "=============================================================================================" | tee -a ${LOG_FILE}
