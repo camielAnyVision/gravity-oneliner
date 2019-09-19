@@ -286,12 +286,12 @@ function online_packages_installation() {
           set +e
           apt-get -qq update >>${LOG_FILE} 2>&1
           set -e
-          apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
+          apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
           set +e
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-          yum install -y epel-release >>${LOG_FILE} 2>&1
+          yum install -y epel-release bzip2 >>${LOG_FILE} 2>&1
           set -e
       fi
   fi
