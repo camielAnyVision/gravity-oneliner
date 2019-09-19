@@ -315,6 +315,7 @@ function nvidia_drivers_installation() {
 
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
+      nvidia_installed=true
 
     fi
   fi
