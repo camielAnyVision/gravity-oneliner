@@ -13,7 +13,7 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.9"
+K8S_BASE_VERSION="1.0.10"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.7"
@@ -71,12 +71,13 @@ function showhelp {
    echo "  [--download-only] Download all the files to the current location"
    echo "  [--skip-cluster-check] Skip verify if cluster is already installed"
    echo "  [--base-url] Base url for downloading the files [default:https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
-   echo "  [--k8s-base-version] K8S base image version [default:1.0.6]"
-   echo "  [--skip-k8s-base] Skip install k8s base"
-   echo "  [--k8s-infra-version] K8S infra image [default:1.0.7]"
-   echo "  [--skip-k8s-infra] Skip install k8s infra charts"
+   echo "  [--k8s-base-version] K8S base image version [default:${K8S_BASE_VERSION}]"
+   echo "  [--skip-k8s-base] Skip installation of k8s base"
+   echo "  [--k8s-infra-version] K8S infra image [default:${K8S_INFRA_VERSION}]"
+   echo "  [--skip-k8s-infra] Skip installation of k8s infra charts"
+   echo "  [--skip-drivers] Skip installation of Nvidia drivers"
    echo "  [-p|--product-name] Product name to install"
-   echo "  [-v|--product-version] Product version to install [default:1.23.1-6]"
+   echo "  [-v|--product-version] Product version to install [default:${PRODUCT_VERSION}]"
    echo "  [--auto-install-product] auto install product"
    echo "  [--add-migration-chart] add also the migration chart"
    echo ""
@@ -109,6 +110,11 @@ while test $# -gt 0; do
         ;;
         --skip-cluster-check)
             SKIP_CLUSTER_CHECK="true"
+        shift
+        continue
+        ;;
+        --skip-drivers)
+            SKIP_DRIVERS="true"
         shift
         continue
         ;;
@@ -194,39 +200,77 @@ function is_tar_files_exists(){
   done
 }
 
+function install_aria2(){
+  ARIA2_VERSION="1.34.0"
+  ARIA2_URL="https://github.com/q3aql/aria2-static-builds/releases/download/v${ARIA2_VERSION}/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2"
+  if [ ! -x "$(command -v aria2c)" ]; then
+    curl -fSsL -o /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 ${ARIA2_URL} >>${LOG_FILE} 2>&1
+    tar jxf /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 -C /tmp >>${LOG_FILE} 2>&1
+    pushd /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1
+    PREFIX=/usr
+    #mkdir -p /etc/ssl/certs/
+    mkdir -p ${PREFIX}/share/man/man1/
+    cp aria2c ${PREFIX}/bin
+    cp man-aria2c ${PREFIX}/share/man/man1/aria2c.1
+    #cp ca-certificates.crt /etc/ssl/certs/
+    chmod 755 ${PREFIX}/bin/aria2c
+    chmod 644 ${PREFIX}/share/man/man1/aria2c.1
+    #chmod 644 /etc/ssl/certs/ca-certificates.crt
+    popd
+  fi
+}
+
+function join_by() { local IFS="$1"; shift; echo "$*"; }
 
 function download_files(){
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
+  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
+  YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
+  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
+
+  ## SHARED PACKAGES TO DOWNLOAD
+  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
   if [ -x "$(command -v apt-get)" ]; then
-    declare -a PACKAGES_TO_DOWNLOAD=("${APT_REPO_FILE_URL}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+    PACKAGES+=("${APT_REPO_FILE_URL}")
   else
-    declare -a PACKAGES_TO_DOWNLOAD=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}" "${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}")
+    PACKAGES+=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}")
   fi
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
-    PACKAGES_TO_DOWNLOAD+=("${K8S_PRODUCT_MIGRATION_URL}")
+    PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
   fi
 
-  for url in "${PACKAGES_TO_DOWNLOAD[@]}"; do
+  declare -a PACKAGES_TO_DOWNLOAD
+
+  for url in "${PACKAGES[@]}"; do
     filename=$(echo "${url##*/}")
-    if [ ! -f "${BASEDIR}/${filename}" ]; then
-      echo "Downloading $url" | tee -a ${LOG_FILE}
-      (curl -fSsL -o "${BASEDIR}/${filename}.tmp" -C - $url >>${LOG_FILE} 2>&1 ; echo "Download completed for $filename" ; mv "${BASEDIR}/${filename}.tmp" "${BASEDIR}/${filename}" ) &
-    else
-      echo "The File is already exist under: ${BASEDIR}/$filename" | tee -a ${LOG_FILE}
+    if [ ! -f "${BASEDIR}/${filename}" ] || [ -f "${BASEDIR}/${filename}.aria2" ]; then
+      PACKAGES_TO_DOWNLOAD+=("${url}")
     fi
   done
-  wait #wait for all background jobs to terminate
+
+  DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
+  if [ "${DOWNLOAD_LIST}" ]; then
+    aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
+  fi
+  
+  ## RENAME DOWNLOADED YQ
+  if [ -f yq_linux_amd64 ]; then
+    mv yq_linux_amd64 yq
+  fi
+  
+  ## ALLOW EXECUTION
+  chmod +x yq *.sh
 }
 
 function online_packages_installation() {
   echo "" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
-  echo "==                Installing Packages, please wait...               ==" | tee -a ${LOG_FILE}
+  echo "==                Installing Packages, please wait...              ==" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}
   if [ -x "$(command -v curl)" ] && [ -x "$(command -v ansible)" ]; then
@@ -237,19 +281,12 @@ function online_packages_installation() {
           apt-get -qq update >>${LOG_FILE} 2>&1
           set -e
           apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
-          #apt-add-repository --yes --update ppa:ansible/ansible >>${LOG_FILE} 2>&1
-          #apt-get -qq install -y ansible >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
           set +e
-          #yum install -y curl > /dev/null
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
           yum install -y epel-release >>${LOG_FILE} 2>&1
           set -e
-          #yum install -y python python-pip >>${LOG_FILE} 2>&1
-          #pip install --upgrade pip >>${LOG_FILE} 2>&1
-          #pip install markupsafe xmltodict pywinrm > /dev/null
-          #yum install -y ansible >>${LOG_FILE} 2>&1
       fi
   fi
 }
@@ -289,7 +326,23 @@ function nvidia_drivers_installation() {
 
     fi
   elif [ -x "$(command -v yum)" ]; then
-    #rpm -q --quiet nvidia-driver-410.104*
+    
+    x_exist=$(pgrep -x X)
+
+    if [ "${x_exist}" != "" ]; then
+      echo "Error: You are runnning X server (Desktop GUI). please change to run level 3 in order to stop X server and run again the script" | tee -a ${LOG_FILE}
+      echo "In order to diable X server (Desktop GUI)" | tee -a ${LOG_FILE}
+      echo "1) systemctl set-default multi-user.target"
+      echo "2) tee /etc/modprobe.d/blacklist-nouveau.conf <<< 'blacklist nouveau'"
+      echo "3) tee -a /etc/modprobe.d/blacklist-nouveau.conf <<< 'options nouveau modeset=0'"
+      echo "4) dracut -f"
+      echo "5) reboot"
+      echo "6) run the script again"
+      echo "In order to re-enable X server (Desktop GUI)"
+      echo "systemctl set-default graphical.target && reboot"
+      exit 1
+    fi
+
     if [[ "${nvidia_version}" == '410'* ]] ; then
       echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
     else
@@ -297,26 +350,13 @@ function nvidia_drivers_installation() {
 
       if [[ $INSTALL_METHOD = "online" ]]; then
         yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
-        # if [ ! -f "/tmp/drivers/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run" ]; then
-        #   echo "Downloading NVIDIA drivers"
-        #   curl http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run \
-        #   --output ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-        # fi
       else
-        # curl http://$(hostname --ip-address | awk '{print $1}')/${RHEL_PACKAGES_FILE_NAME} \
-        # --output ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} >>${LOG_FILE} 2>&1
         mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
         tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
-
-        # curl http://$(hostname --ip-address | awk '{print $1}')/NVIDIA-Linux-x86_64-410.104.run \
-        # --output /tmp/drivers/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       fi
-      #yum remove -y *nvidia* cuda* >>${LOG_FILE} 2>&1
-
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
       nvidia_installed=true
-
     fi
   fi
 }
@@ -368,48 +408,23 @@ EOF
 }
 
 function install_gravity_app() {
-  echo "" | tee -a ${LOG_FILE}
-  echo "=============================================================================================" | tee -a ${LOG_FILE}
-  echo "==            Installing App $1 version $2, please wait...                                   " | tee -a ${LOG_FILE}
-  echo "=============================================================================================" | tee -a ${LOG_FILE}
-  echo "" | tee -a ${LOG_FILE}
-  echo "Connecting to Gravity Ops Center..." | tee -a ${LOG_FILE}
-  gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
-  echo ""
-  echo "Importing App $1 ..." | tee -a ${LOG_FILE}
-  gravity app import --force --insecure --ops-url=https://localhost:3009 ${BASEDIR}/${1}-${2}.tar.gz | tee -a ${LOG_FILE}
-  echo ""
-  echo "Pulling App $1 ..." | tee -a ${LOG_FILE}
-  gravity app pull --force --insecure --ops-url=https://localhost:3009 gravitational.io/${1}:${2}
-  echo ""
-  echo "Exporting App $1 ..." | tee -a ${LOG_FILE}
-  gravity exec gravity app export gravitational.io/${1}:${2} | tee -a ${LOG_FILE}
-
+  PACKAGE_FILE="${1}"
+  shift
+  ${BASEDIR}/gravity_package_installer.sh "${PACKAGE_FILE}" "$@" | tee -a ${LOG_FILE}
 }
 
 function install_k8s_infra_app() {
   if [[ "$SKIP_K8S_INFRA" = false ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
-    install_gravity_app ${K8S_INFRA_NAME} ${K8S_INFRA_VERSION}
-    echo ""
-    echo "Installing App $K8S_INFRA_NAME ..." | tee -a ${LOG_FILE}
-    gravity exec gravity app hook --debug --env=rancher=true gravitational.io/${K8S_INFRA_NAME}:${K8S_INFRA_VERSION} install >>${LOG_FILE} 2>&1
+    install_gravity_app "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" --env=rancher=true
   fi
 }
 
 function install_product_app() {
   if [[ "$SKIP_PRODUCT" = false ]] && [[ -f "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]]; then
-    echo ""
-    echo "Installing App $PRODUCT_NAME ..." | tee -a ${LOG_FILE}
-    install_gravity_app ${PRODUCT_NAME} ${PRODUCT_VERSION}
-    gravity exec gravity app hook --debug --env=install_product=${INSTALL_PRODUCT} gravitational.io/${PRODUCT_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
-
+    install_gravity_app "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" --env=install_product=${INSTALL_PRODUCT}
     if [ "$MIGRATION_EXIST" == "true" ] && [ -f "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" ] ; then
-      echo ""
-      echo "Installing App $PRODUCT_MIGRATION_NAME ..." | tee -a ${LOG_FILE}
-      install_gravity_app ${PRODUCT_MIGRATION_NAME} ${PRODUCT_VERSION}
-      gravity exec gravity app hook --debug --env=install_product=false gravitational.io/${PRODUCT_MIGRATION_NAME}:${PRODUCT_VERSION} install >>${LOG_FILE} 2>&1
+      install_gravity_app "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" --env=install_product=false
     fi
-
   fi
 }
 
@@ -430,18 +445,21 @@ is_kubectl_exists
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 
 if [[ $INSTALL_METHOD = "online" ]]; then
+  online_packages_installation
+  install_aria2
   download_files
   if [ "${DOWNLOAD_ONLY}" == "true" ]; then
     echo "Download only is enabled" | tee -a ${LOG_FILE}
     exit 0
   fi
   is_tar_files_exists
-  online_packages_installation
-  nvidia_drivers_installation
   install_gravity
   create_admin
   restore_secrets
   install_k8s_infra_app
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
+    nvidia_drivers_installation
+  fi
   install_product_app
 else
   is_tar_files_exists
@@ -449,9 +467,12 @@ else
   create_admin
   restore_secrets
   install_k8s_infra_app
-  nvidia_drivers_installation
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
+    nvidia_drivers_installation
+  fi
   install_product_app
 fi
+
 
 echo "=============================================================================================" | tee -a ${LOG_FILE}
 echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
@@ -460,4 +481,3 @@ if [ $nvidia_installed ]; then
   echo "==                   New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
 fi
 echo "=============================================================================================" | tee -a ${LOG_FILE}
-
