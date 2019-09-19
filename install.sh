@@ -20,14 +20,12 @@ K8S_INFRA_VERSION="1.0.7"
 
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.24.0-13"
-PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
-APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
+
 # RHEL/CENTOS options
 RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
-RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
 
 INSTALL_PRODUCT=false
@@ -173,6 +171,11 @@ while test $# -gt 0; do
     esac
     break
 done
+
+# evaluate variables after providing script arguments
+PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
+RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
+APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
 
 function is_kubectl_exists() {
   if [ "${SKIP_CLUSTER_CHECK}" == "false" ]; then
@@ -336,7 +339,7 @@ function nvidia_drivers_installation() {
     set +e
     x_exist=$(pgrep -x X)
     set -e
-    
+
     if [ "${x_exist}" != "" ]; then
       echo "Error: You are runnning X server (Desktop GUI). please change to run level 3 in order to stop X server and run again the script" | tee -a ${LOG_FILE}
       echo "In order to diable X server (Desktop GUI)" | tee -a ${LOG_FILE}
