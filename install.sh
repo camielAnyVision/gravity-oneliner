@@ -71,13 +71,13 @@ function showhelp {
    echo "  [--download-only] Download all the files to the current location"
    echo "  [--skip-cluster-check] Skip verify if cluster is already installed"
    echo "  [--base-url] Base url for downloading the files [default:https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
-   echo "  [--k8s-base-version] K8S base image version [default:1.0.6]"
+   echo "  [--k8s-base-version] K8S base image version [default:${K8S_BASE_VERSION}]"
    echo "  [--skip-k8s-base] Skip installation of k8s base"
-   echo "  [--k8s-infra-version] K8S infra image [default:1.0.6]"
+   echo "  [--k8s-infra-version] K8S infra image [default:${K8S_INFRA_VERSION}]"
    echo "  [--skip-k8s-infra] Skip installation of k8s infra charts"
    echo "  [--skip-drivers] Skip installation of Nvidia drivers"
    echo "  [-p|--product-name] Product name to install"
-   echo "  [-v|--product-version] Product version to install [default:1.23.1-6]"
+   echo "  [-v|--product-version] Product version to install [default:${PRODUCT_VERSION}]"
    echo "  [--auto-install-product] auto install product"
    echo "  [--add-migration-chart] add also the migration chart"
    echo ""
@@ -227,11 +227,12 @@ function download_files(){
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
-  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/master/gravity_package_installer.sh"
+  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/ziv-patch/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
+  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/ziv-patch/install.sh"
 
   ## SHARED PACKAGES TO DOWNLOAD
-  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
+  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
   if [ -x "$(command -v apt-get)" ]; then
     PACKAGES+=("${APT_REPO_FILE_URL}")
@@ -254,7 +255,7 @@ function download_files(){
 
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
-    aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 ${DOWNLOAD_LIST}
+    aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
   fi
   
   ## RENAME DOWNLOADED YQ
@@ -356,10 +357,20 @@ function nvidia_drivers_installation() {
       #yum remove -y *nvidia* cuda* >>${LOG_FILE} 2>&1
 
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-      ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
+      ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs --no-x-check >>${LOG_FILE} 2>&1
 
     fi
   fi
+}
+
+function firewall_rules() {
+  if [ -x "$(command -v ufw)" ]; then
+    ufw allow in on cni0 from 10.244.0.0/16
+  elif [ -x "$(command -v firewall-cmd)" ]; then
+    firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 1 -i cni0 -s 10.244.0.0/16 -j ACCEPT
+    firewall-cmd --permanent --direct --add-rule ipv4 filter FORWARD 1 -s 10.244.0.0/16 -j ACCEPT
+    firewall-cmd --reload
+  fi  
 }
 
 function install_gravity() {
