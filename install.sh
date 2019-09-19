@@ -13,7 +13,7 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.9"
+K8S_BASE_VERSION="1.0.10"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.6"
@@ -281,19 +281,12 @@ function online_packages_installation() {
           apt-get -qq update >>${LOG_FILE} 2>&1
           set -e
           apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
-          #apt-add-repository --yes --update ppa:ansible/ansible >>${LOG_FILE} 2>&1
-          #apt-get -qq install -y ansible >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
           set +e
-          #yum install -y curl > /dev/null
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
           yum install -y epel-release >>${LOG_FILE} 2>&1
           set -e
-          #yum install -y python python-pip >>${LOG_FILE} 2>&1
-          #pip install --upgrade pip >>${LOG_FILE} 2>&1
-          #pip install markupsafe xmltodict pywinrm > /dev/null
-          #yum install -y ansible >>${LOG_FILE} 2>&1
       fi
   fi
 }
@@ -339,12 +332,11 @@ function nvidia_drivers_installation() {
       echo "Error: You are runnning X server (Desktop GUI). please change to run level 3 in order to stop X server and run again the script" | tee -a ${LOG_FILE}
       echo "In order to diable X server (Desktop GUI)" | tee -a ${LOG_FILE}
       echo "1) systemctl set-default multi-user.target"
-      echo "2) tee /etc/modules-load.d/ipmi.conf <<< 'ipmi_msghandler'"
-      echo "3) tee /etc/modprobe.d/blacklist-nouveau.conf <<< 'blacklist nouveau'"
-      echo "4) tee -a /etc/modprobe.d/blacklist-nouveau.conf <<< 'options nouveau modeset=0'"
-      echo "5) dracut -f"
-      echo "6) reboot"
-      echo "7) run the script again"
+      echo "2) tee /etc/modprobe.d/blacklist-nouveau.conf <<< 'blacklist nouveau'"
+      echo "3) tee -a /etc/modprobe.d/blacklist-nouveau.conf <<< 'options nouveau modeset=0'"
+      echo "4) dracut -f"
+      echo "5) reboot"
+      echo "6) run the script again"
       echo "In order to re-enable X server (Desktop GUI)"
       echo "systemctl set-default graphical.target && reboot"
       exit 1
@@ -365,16 +357,6 @@ function nvidia_drivers_installation() {
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
     fi
   fi
-}
-
-function firewall_rules() {
-  if [ -x "$(command -v ufw)" ]; then
-    ufw allow in on cni0 from 10.244.0.0/16
-  elif [ -x "$(command -v firewall-cmd)" ]; then
-    firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 1 -i cni0 -s 10.244.0.0/16 -j ACCEPT
-    firewall-cmd --permanent --direct --add-rule ipv4 filter FORWARD 1 -s 10.244.0.0/16 -j ACCEPT
-    firewall-cmd --reload
-  fi  
 }
 
 function install_gravity() {
