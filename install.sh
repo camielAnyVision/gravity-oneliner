@@ -291,7 +291,7 @@ function online_packages_installation() {
           set +e
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-          yum install -y epel-release bzip2 >>${LOG_FILE} 2>&1
+          yum install -y epel-release bzip2 autocomplete >>${LOG_FILE} 2>&1
           set -e
       fi
   fi
@@ -333,8 +333,10 @@ function nvidia_drivers_installation() {
     fi
   elif [ -x "$(command -v yum)" ]; then
     
+    set +e
     x_exist=$(pgrep -x X)
-
+    set -e
+    
     if [ "${x_exist}" != "" ]; then
       echo "Error: You are runnning X server (Desktop GUI). please change to run level 3 in order to stop X server and run again the script" | tee -a ${LOG_FILE}
       echo "In order to diable X server (Desktop GUI)" | tee -a ${LOG_FILE}
