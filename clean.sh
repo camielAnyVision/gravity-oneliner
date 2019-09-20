@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 # Absolute path to this script
@@ -10,7 +9,6 @@ INSTALL_MODE="aio"
 INSTALL_METHOD="online"
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.23.1-5"
-
 
 ## Permissions check
 if [[ $EUID -ne 0 ]]; then
@@ -47,36 +45,24 @@ function showhelp {
   echo ""
 }
 
-function is_kubectl_exists {
-  ## Check if this machine is part of an existing Kubernetes cluster
-  if gravity status --quiet > /dev/null 2>&1; then
-    echo "Gravity cluster is already installed"
-    if [ -x "$(command -v kubectl)" ]; then
-      if [[ $(kubectl cluster-info) == *'Kubernetes master'*'running'*'https://'* ]]; then
-        echo "" | tee -a ${LOG_FILE}
-        echo "Error: this machine is a part of an existing Kubernetes cluster, please detach it before running this installer." | tee -a ${LOG_FILE}
-        exit 1
-        KUBECTL_EXISTS=true
-      fi
-    fi
-  fi
-}
-
 function backup_secrets {
-  mkdir -p /opt/backup/secrets
-  echo "###########################"
-  echo "# Backing up secrets. . . #"
-  echo "###########################"
-  secrets_list=$(kubectl get secret | tail -n +2 | awk '{print $1}')
-  relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
-  for secret in $secrets_list
-  do
-    if [[ " ${relevant_secrets_list[@]} " =~ " ${secret} " ]]; then
-      echo "Backing up secret $secret"
-      kubectl get secret $secret -o yaml | grep -v "^  \(creation\|resourceVersion\|selfLink\|uid\)" > /opt/backup/secrets/$secret.yaml
-    fi
-  done
-
+  if [ -x "$(command -v kubectl)" ]; then
+    mkdir -p /opt/backup/secrets
+    echo "###########################"
+    echo "# Backing up secrets. . . #"
+    echo "###########################"
+    secrets_list=$(kubectl get secret | tail -n +2 | awk '{print $1}')
+    relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
+    for secret in $secrets_list
+    do
+      if [[ " ${relevant_secrets_list[@]} " =~ " ${secret} " ]]; then
+        echo "Backing up secret $secret"
+        kubectl get secret $secret -o yaml | grep -v "^  \(creation\|resourceVersion\|selfLink\|uid\)" > /opt/backup/secrets/$secret.yaml
+      fi
+    done
+ else
+   echo "#### kubectl does not exists, skipping secrets backup phase."
+ fi
 }
 
 function remove_nvidia_drivers {
@@ -121,30 +107,38 @@ function remove_nvidia_docker {
 }
 
 function disable_k3s {
-  echo "###################################"
-  echo "# Stopping and disabling K3S. . . #"
-  echo "###################################"
-  systemctl stop k3s
-  systemctl disable k3s
-  k3s-uninstall.sh
+  if [ -x "$(command -v k3s-uninstall.sh)" ]; then
+    echo "###################################"
+    echo "# Stopping and disabling K3S. . . #"
+    echo "###################################"
+    systemctl is-active --quiet k3s && systemctl stop k3s
+    systemctl is-enabled --quiet k3s && systemctl disable k3s
+    k3s-uninstall.sh
+  else
+    echo "#### k3s does not exists, skipping k3s removal phase."
+  fi
 }
 
 function disable_docker {
-  echo "############################################"
-  echo "# Killing and removing all containers. . . #"
-  echo "############################################"
-  docker kill $(docker ps -q)
-  docker rm $(docker ps -aq)
-  docker system prune -f
-  echo "######################################"
-  echo "# Stopping and disabling Docker. . . #"
-  echo "######################################"
-  systemctl stop docker
-  systemctl disable docker
-  if [ -x "$(command -v apt-get)" ]; then
-    apt remove -y --purge docker*
-  elif [ -x "$(command -v yum)" ]; then
-    yum remove -y docker*
+  if [ -x "$(command -v docker)" ]; then
+    echo "############################################"
+    echo "# Killing and removing all containers. . . #"
+    echo "############################################"
+    docker kill $(docker ps -q)
+    docker rm $(docker ps -aq)
+    docker system prune -f
+    echo "######################################"
+    echo "# Stopping and disabling Docker. . . #"
+    echo "######################################"
+    systemctl is-active --quiet docker && systemctl stop docker
+    systemctl is-enabled --quiet docker && systemctl disable docker
+    if [ -x "$(command -v apt-get)" ]; then
+      apt remove -y --purge docker*
+    elif [ -x "$(command -v yum)" ]; then
+      yum remove -y docker*
+    fi
+  else
+    echo "#### docker does not exists, skipping docker removal phase."
   fi
 }
 
