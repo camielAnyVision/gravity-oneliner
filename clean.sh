@@ -10,6 +10,7 @@ INSTALL_METHOD="online"
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.23.1-5"
 
+
 ## Permissions check
 if [[ $EUID -ne 0 ]]; then
    echo "Error: This script must be run as root." | tee -a ${BASEDIR}/gravity-installer.log
@@ -60,9 +61,9 @@ function backup_secrets {
         kubectl get secret $secret -o yaml | grep -v "^  \(creation\|resourceVersion\|selfLink\|uid\)" > /opt/backup/secrets/$secret.yaml
       fi
     done
- else
-   echo "#### kubectl does not exists, skipping secrets backup phase."
- fi
+  else
+    echo "#### kubectl does not exists, skipping secrets backup phase."
+  fi
 }
 
 function remove_nvidia_drivers {
