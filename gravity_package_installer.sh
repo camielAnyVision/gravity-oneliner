@@ -21,7 +21,10 @@ if [ $PACKAGE_CONTENT ]; then
   printf "#### Exporting $APP_STRING to local Docker registry ...\n"
   gravity exec gravity app export $APP_STRING
   printf "#### Executing $APP_STRING install hook ...\n"
-  gravity exec gravity app hook $@ --debug $APP_STRING install
+  gravity exec gravity app hook $@ $APP_STRING install
+  if [ $? == 0 ]; then
+    echo "Error: hook for $APP_STRING exited with non-zero status."
+  fi
   printf "\n\nDone!\n"
 else
   PACKAGE_CONTENT=$(timeout 0.3 tar tf $PACKAGE app.yaml 2>/dev/null)
