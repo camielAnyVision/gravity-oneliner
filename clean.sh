@@ -122,24 +122,24 @@ function disable_k3s {
 
 function disable_docker {
   if [ -x "$(command -v docker)" ]; then
-    echo "############################################"
-    echo "# Killing and removing all containers. . . #"
-    echo "############################################"
-    docker kill $(docker ps -q)
-    docker rm $(docker ps -aq)
-    docker system prune -f
+    #echo "############################################"
+    #echo "# Killing and removing all containers. . . #"
+    #echo "############################################"
+    #docker kill $(docker ps -q)
+    #docker rm $(docker ps -aq)
+    #docker system prune -f
     echo "######################################"
     echo "# Stopping and disabling Docker. . . #"
     echo "######################################"
     systemctl is-active --quiet docker && systemctl stop docker
     systemctl is-enabled --quiet docker && systemctl disable docker
-    if [ -x "$(command -v apt-get)" ]; then
-      apt remove -y --purge docker*
-    elif [ -x "$(command -v yum)" ]; then
-      yum remove -y docker*
-    fi
+    #if [ -x "$(command -v apt-get)" ]; then
+    #  apt remove -y --purge docker*
+    #elif [ -x "$(command -v yum)" ]; then
+    #  yum remove -y docker*
+    #fi
   else
-    echo "#### docker does not exists, skipping docker removal phase."
+    echo "#### docker does not exists, skipping docker service disabling phase."
   fi
 }
 
