@@ -7,6 +7,12 @@ PACKAGE_CONTENT=$(timeout 0.3 tar tf $PACKAGE resources/app.yaml 2>/dev/null)
 shift
 
 if [ $PACKAGE_CONTENT ]; then
+  echo ""
+  echo "====================================================================="
+  echo "==                Installing $APP_NAME , please wait...              "
+  echo "====================================================================="
+  echo ""
+
   APP_VERSION=$(timeout 0.3 tar xf $PACKAGE resources/app.yaml --to-command './yq r - metadata.resourceVersion; true')
   APP_NAME=$(timeout 0.3 tar xf $PACKAGE resources/app.yaml --to-command './yq r - metadata.name; true')
   REPO_NAME=$(timeout 0.3 tar xf $PACKAGE resources/app.yaml --to-command './yq r - metadata.repository; true')
@@ -21,7 +27,10 @@ if [ $PACKAGE_CONTENT ]; then
   printf "#### Exporting $APP_STRING to local Docker registry ...\n"
   gravity exec gravity app export $APP_STRING
   printf "#### Executing $APP_STRING install hook ...\n"
-  gravity exec gravity app hook $@ --debug $APP_STRING install
+  gravity exec gravity app hook $@ $APP_STRING install
+  if [ $? == 0 ]; then
+    echo "Error: unable to run install hook $APP_STRING"
+  fi
   printf "\n\nDone!\n"
 else
   PACKAGE_CONTENT=$(timeout 0.3 tar tf $PACKAGE app.yaml 2>/dev/null)
