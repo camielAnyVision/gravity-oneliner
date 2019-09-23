@@ -484,7 +484,17 @@ fi
 echo "=============================================================================================" | tee -a ${LOG_FILE}
 echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
   
-if [ $nvidia_installed ]; then
-  echo "==                   New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
+if [ $nvidia_installed ] ; then
+   if [ -x "$(command -v kubectl)" ] ; then  
+      if [ $(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>&1 >/dev/null) != 0 ]; then
+         echo "==                   New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
+      fi
+   else
+      echo "==                      The nvidia driver was installed but somthing went worng happened, please contact support team"
+   fi
+else
+  echo "==                   The nvidia driver has not been installed, please contact support team!               " | tee -a ${LOG_FILE}
+  exit 99
 fi
+
 echo "=============================================================================================" | tee -a ${LOG_FILE}
