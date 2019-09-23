@@ -6,7 +6,6 @@ SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
 BASEDIR=$(dirname "$SCRIPT")
 
-do_uninstall="false"
 
 ## Permissions check
 if [[ $EUID -ne 0 ]]; then
@@ -35,10 +34,9 @@ function showhelp {
   echo "OPTIONS:"
   echo "  [-h|--help] help"
   echo "  [-a|--all] Perform all arguments"
-  echo "  [--uninstall] Uninstall instead of disable"
   echo "  [-s|--backup-secrets] Backup secrets"
-  echo "  [-k|--disable-k3s] Disable k3s"
-  echo "  [-d|--disable-docker] Disable Docker"
+  echo "  [-k|--remove-k8s] Uninstall k8s"
+  echo "  [-d|--remove-docker] Remove Docker"
   echo "  [-n|--remove-nvidia-docker] Remove Nvidia-docker"
   echo "  [-v|--remove-nvidia-drivers] Remove Nvidia drivers"
   echo ""
@@ -110,51 +108,58 @@ function remove_nvidia_docker {
   fi
 }
 
-function disable_k3s {
-  if systemctl is-active --quiet k3s; then
-    echo "#### Stopping k3s service..."
+function disable_k8s {
+
+  if [ -x "$(command -v k3s-uninstall.sh)" ]; then
+    echo "###################################"
+    echo "# Uninstalling K3S. . . #"
+    echo "###################################"
     systemctl stop k3s
     systemctl is-enabled --quiet k3s && echo "#### Disabling k3s service..." && systemctl disable k3s
-    if [ "${do_uninstall}" == "true" ]; then
-      echo "#### Removing k3s..."
-      if [ -x "$(command -v k3s-uninstall.sh)" ]; then
-        k3s-uninstall.sh
-      else
-        echo "#### k3s uninstall script does not exists, skipping k3s removal phase."
-      fi
+    k3s-uninstall.sh
+  elif [ -x "$(command -v kubeadm)" ]
+    echo "###################################"
+    echo "# Uninstalling K8S. . . #"
+    echo "###################################"
+    kubeadm reset
+    if [ -x "$(command -v apt-get)" ]; then
+      apt-get purge kubeadm kubectl kubelet kubernetes-cni kube* -y
+      apt-get autoremove -y
+    elif [ -x "$(command -v yum)" ]; then
+      yum remove kubeadm kubectl kubelet kubernetes-cni kube* -y
+      yum autoremove -y
     fi
-  else
-    echo "#### k3s is not active, skipping k3s service disabling phase."
+    rm -rf ~/.kube
+    rm -rf /etc/kubernetes
   fi
+
 }
 
 function disable_docker {
   if [ -x "$(command -v docker)" ] && systemctl is-active --quiet docker; then
+    echo "############################################"
+    echo "# Killing and removing all containers. . . #"
+    echo "############################################"
     set +e
-    echo "#### Killing all running containers..."
     docker kill $(docker ps -q)
-    echo "#### Removing all stopped containers..."
     docker rm $(docker ps -aq)
-    echo "#### Pruning all docker networks..."
     docker network prune -f
-    #docker system prune -f
+    docker system prune -f
     set -e
-    echo "#### Stopping Docker service..."
+    echo "######################################"
+    echo "# Uninstalling Docker. . . #"
+    echo "######################################"
     systemctl stop docker
     systemctl is-enabled --quiet docker && echo "#### Disabling Docker service..." && systemctl disable docker
-    if [ "${do_uninstall}" == "true" ]; then
-      echo "#### Removing docker.."
-      if [ -x "$(command -v docker)" ] && [ -x "$(command -v apt-get)" ]; then
-        apt remove -y --purge docker*
-      elif [ -x "$(command -v docker)" ] && [ -x "$(command -v yum)" ]; then
-        yum remove -y docker*
-      fi
+    if [ -x "$(command -v apt-get)" ]; then
+      apt remove -y --purge docker*
+    elif [ -x "$(command -v yum)" ]; then
+      yum remove -y docker*
     fi
   else
     echo "#### docker does not exists or is disabled, skipping docker service disabling phase."
   fi
 }
-
 
 POSITIONAL=()
 while test $# -gt 0; do
@@ -164,14 +169,9 @@ while test $# -gt 0; do
         showhelp
         exit 0
         ;;
-        --uninstall)
-        do_uninstall="true"
-        shift
-        continue
-        ;;
         -a|--all)
         backup_secrets
-        disable_k3s
+        disable_k8s
         disable_docker
         remove_nvidia_docker
         remove_nvidia_drivers
@@ -185,13 +185,11 @@ while test $# -gt 0; do
         continue        
         #exit 0
         ;;
-        -k|--disable-k3s)
-        disable_k3s
-        shift
-        continue         
-        #exit 0
+        -k|--remove-k8s)
+        disable_k8s
+        exit 0
         ;;
-        -d|--disable-docker)
+        -d|--remove-docker)
         disable_docker
         shift
         continue         
