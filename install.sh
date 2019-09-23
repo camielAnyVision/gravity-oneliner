@@ -13,23 +13,20 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.8"
+K8S_BASE_VERSION="1.0.10"
 
 K8S_INFRA_NAME="k8s-infra"
-K8S_INFRA_VERSION="1.0.6"
+K8S_INFRA_VERSION="1.0.7"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-6"
-PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
+PRODUCT_VERSION="1.24.0-13"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
-APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
 UBUNTU_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-418.40.04-ubuntu18.04.tar.gz"
 
 # RHEL/CENTOS options
 RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
-RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 RHEL_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-418.40.04-rhel7.tar.gz"
 
 INSTALL_PRODUCT=false
@@ -73,13 +70,13 @@ function showhelp {
    echo "  [--download-only] Download all the files to the current location"
    echo "  [--skip-cluster-check] Skip verify if cluster is already installed"
    echo "  [--base-url] Base url for downloading the files [default:https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
-   echo "  [--k8s-base-version] K8S base image version [default:1.0.6]"
+   echo "  [--k8s-base-version] K8S base image version [default:${K8S_BASE_VERSION}]"
    echo "  [--skip-k8s-base] Skip installation of k8s base"
-   echo "  [--k8s-infra-version] K8S infra image [default:1.0.6]"
+   echo "  [--k8s-infra-version] K8S infra image [default:${K8S_INFRA_VERSION}]"
    echo "  [--skip-k8s-infra] Skip installation of k8s infra charts"
    echo "  [--skip-drivers] Skip installation of Nvidia drivers"
    echo "  [-p|--product-name] Product name to install"
-   echo "  [-v|--product-version] Product version to install [default:1.23.1-6]"
+   echo "  [-v|--product-version] Product version to install [default:${PRODUCT_VERSION}]"
    echo "  [--auto-install-product] auto install product"
    echo "  [--add-migration-chart] add also the migration chart"
    echo ""
@@ -176,6 +173,11 @@ while test $# -gt 0; do
     break
 done
 
+# evaluate variables after providing script arguments
+PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
+RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
+APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
+
 function is_kubectl_exists() {
   if [ "${SKIP_CLUSTER_CHECK}" == "false" ]; then
     ## Check if this machine is part of an existing Kubernetes cluster
@@ -224,16 +226,23 @@ function install_aria2(){
 
 function join_by() { local IFS="$1"; shift; echo "$*"; }
 
-function download_files(){
+function download_files() {
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==                Downloading Packages, please wait...             ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}
+
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/on-demand-nvidia-driver/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
-  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/registry-variable/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
-  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/registry-variable/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
-  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://github.com/AnyVisionltd/gravity-oneliner/blob/master/gravity_package_installer.sh"
+  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/on-demand-gravity-1.24.0/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/on-demand-gravity-1.24.0/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
+  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
+  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
 
   ## SHARED PACKAGES TO DOWNLOAD
-  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}")
+  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
   if [ -x "$(command -v apt-get)" ]; then
     PACKAGES+=("${UBUNTU_NVIDIA_DRIVER}")
@@ -256,9 +265,9 @@ function download_files(){
 
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
-    aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 ${DOWNLOAD_LIST}
+    aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
   fi
-
+  
   ## RENAME DOWNLOADED YQ
   if [ -f yq_linux_amd64 ]; then
     mv yq_linux_amd64 yq
@@ -281,20 +290,13 @@ function online_packages_installation() {
           set +e
           apt-get -qq update >>${LOG_FILE} 2>&1
           set -e
-          apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
-          #apt-add-repository --yes --update ppa:ansible/ansible >>${LOG_FILE} 2>&1
-          #apt-get -qq install -y ansible >>${LOG_FILE} 2>&1
+          apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
           set +e
-          #yum install -y curl > /dev/null
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-          yum install -y epel-release >>${LOG_FILE} 2>&1
+          yum install -y epel-release bzip2 autocomplete >>${LOG_FILE} 2>&1
           set -e
-          #yum install -y python python-pip >>${LOG_FILE} 2>&1
-          #pip install --upgrade pip >>${LOG_FILE} 2>&1
-          #pip install markupsafe xmltodict pywinrm > /dev/null
-          #yum install -y ansible >>${LOG_FILE} 2>&1
       fi
   fi
 }
@@ -307,13 +309,9 @@ function install_gravity() {
     echo "==                Installing Gravity, please wait...               ==" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
-    #set -e
-    #if [[ $INSTALL_METHOD = "online" ]]; then
-    #  curl -fSLo ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar https://gravity-bundles.s3.eu-central-1.amazonaws.com/anv-base-k8s/on-demand-all-caps/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar 2> >(tee -a ${LOG_FILE} >&2)
-    #else
+
     mkdir -p ${BASEDIR}/${K8S_BASE_NAME}
     tar -xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar -C ${BASEDIR}/${K8S_BASE_NAME} | tee -a ${LOG_FILE}
-    #fi
 
     cd ${BASEDIR}/${K8S_BASE_NAME}
     ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
@@ -351,7 +349,7 @@ function install_gravity_app() {
   ${BASEDIR}/gravity_package_installer.sh "${PACKAGE_FILE}" "$@" | tee -a ${LOG_FILE}
 }
 
-function install_nvidia_driver() {
+function nvidia_drivers_installation() {
   . /etc/os-release
   ## USE ONLY MAJOR VERSION OF RHEL VERSION
   if [[ "${VERSION_ID}" =~ ^[7,8]\.[0-9]+ ]]; then
@@ -393,6 +391,7 @@ function restore_secrets() {
   #rm -rf /opt/backup/secrets
 }
 
+
 is_kubectl_exists
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 
@@ -408,10 +407,10 @@ if [[ $INSTALL_METHOD = "online" ]]; then
   install_gravity
   create_admin
   restore_secrets
-  if [ "${SKIP_DRIVERS}" == "false" ]; then
-    install_nvidia_driver
-  fi
   install_k8s_infra_app
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
+    nvidia_drivers_installation
+  fi
   install_product_app
 else
   is_tar_files_exists
@@ -420,7 +419,12 @@ else
   restore_secrets
   install_k8s_infra_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
-    install_nvidia_driver
+    nvidia_drivers_installation
   fi
   install_product_app
 fi
+
+
+echo "=============================================================================================" | tee -a ${LOG_FILE}
+echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
+echo "=============================================================================================" | tee -a ${LOG_FILE}

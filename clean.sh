@@ -47,55 +47,7 @@ function showhelp {
   echo ""
 }
 
-POSITIONAL=()
-while test $# -gt 0; do
-    key="$1"
-    case $key in
-        -h|help|--help)
-        showhelp
-        exit 0
-        ;;
-        -a|--all)
-        shift
-            ALL=${1:-false}
-        shift
-        continue
-        ;;
-        -s|--backup-secrets)
-        shift
-            BACKUP_SECRETS=${1:-false}
-        shift
-        continue
-        ;;
-        -k|--disable-k3s)
-        shift
-            DISABLE_K3S=${1:-false}
-        shift
-        continue
-        ;;
-        -d|--disable-docker)
-        shift
-            DISABLE_DOCKER=${1:-false}
-        shift
-        continue
-        ;;
-        -n|--remove-nvidia-docker)
-        shift
-            REMOVE_NVIDIA_DOCKER=${1:-false}
-        shift
-        continue
-        ;;
-        -v|--remove-nvidia-drivers)
-        shift
-            REMOVE_NVIDIA_DRIVERS=${1:-false}
-        shift
-        continue
-        ;;
-    esac
-    break
-done
-
-function is_kubectl_exists() {
+function is_kubectl_exists {
   ## Check if this machine is part of an existing Kubernetes cluster
   if gravity status --quiet > /dev/null 2>&1; then
     echo "Gravity cluster is already installed"
@@ -110,7 +62,7 @@ function is_kubectl_exists() {
   fi
 }
 
-function backup_secrets(){
+function backup_secrets {
   mkdir -p /opt/backup/secrets
   echo "###########################"
   echo "# Backing up secrets. . . #"
@@ -127,7 +79,7 @@ function backup_secrets(){
 
 }
 
-function remove_nvidia_drivers(){
+function remove_nvidia_drivers {
   if [ -x "$(command -v apt-get)" ]; then
     if dpkg-query --show nvidia-driver-410 ; then
       echo "Nvidia driver is already on the right version (410)"
@@ -151,7 +103,7 @@ function remove_nvidia_drivers(){
   fi
 }
 
-function remove_nvidia_docker(){
+function remove_nvidia_docker {
   if [ -x "$(command -v apt-get)" ]; then
     if  [ -x "$(command -v nvidia-docker)" ]; then
       echo "###############################"
@@ -168,15 +120,16 @@ function remove_nvidia_docker(){
   fi
 }
 
-function disable_k3s(){
+function disable_k3s {
   echo "###################################"
   echo "# Stopping and disabling K3S. . . #"
   echo "###################################"
   systemctl stop k3s
   systemctl disable k3s
+  k3s-uninstall.sh
 }
 
-function disable_docker(){
+function disable_docker {
   echo "############################################"
   echo "# Killing and removing all containers. . . #"
   echo "############################################"
@@ -188,23 +141,49 @@ function disable_docker(){
   echo "######################################"
   systemctl stop docker
   systemctl disable docker
+  if [ -x "$(command -v apt-get)" ]; then
+    apt remove -y --purge docker*
+  elif [ -x "$(command -v yum)" ]; then
+    yum remove -y docker*
+  fi
 }
 
-if [[ $BACKUP_SECRETS ]]; then
-  backup_secrets
-elif [[ $DISABLE_K3S ]]; then
-  disable_k3s
-elif [[ $DISABLE_DOCKER ]]; then
-  disable_docker
-elif [[ $REMOVE_NVIDIA_DOCKER ]]; then
-  remove_nvidia_docker
-elif [[ $REMOVE_NVIDIA_DRIVERS ]]; then
-  remove_nvidia_drivers
-elif [[ $ALL ]]; then
-  backup_secrets
-  disable_k3s
-  disable_docker
-  remove_nvidia_docker
-  remove_nvidia_drivers
-fi
-
+POSITIONAL=()
+while test $# -gt 0; do
+    key="$1"
+    case $key in
+        -h|help|--help)
+        showhelp
+        exit 0
+        ;;
+        -a|--all)
+        backup_secrets
+        disable_k3s
+        disable_docker
+        remove_nvidia_docker
+        remove_nvidia_drivers
+        exit 0
+        ;;
+        -s|--backup-secrets)
+        backup_secrets
+        exit 0
+        ;;
+        -k|--disable-k3s)
+        disable_k3s
+        exit 0
+        ;;
+        -d|--disable-docker)
+        disable_docker
+        exit 0
+        ;;
+        -n|--remove-nvidia-docker)
+        remove_nvidia_docker
+        exit 0
+        ;;
+        -v|--remove-nvidia-drivers)
+        remove_nvidia_drivers
+        exit 0
+        ;;
+    esac
+    break
+done
