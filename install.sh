@@ -27,6 +27,7 @@ APT_REPO_FILE_NAME="apt-repo-20190821.tar"
 # RHEL/CENTOS options
 RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
 RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
+RHEL_NVIDIA_DRIVER_NAME="${RHEL_NVIDIA_DRIVER##*/}"
 
 INSTALL_PRODUCT=false
 SKIP_K8S_BASE=false
@@ -199,7 +200,7 @@ function is_tar_files_exists(){
   if [ -x "$(command -v apt-get)" ]; then
     TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
   else
-    TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
+    TAR_FILES_LIST+="${RHEL_PACKAGES_FILE_NAME} ${RHEL_NVIDIA_DRIVER_NAME}"
   fi
   for file in ${TAR_FILES_LIST}; do
       if [[ ! -f "${BASEDIR}/$file" ]] ; then
