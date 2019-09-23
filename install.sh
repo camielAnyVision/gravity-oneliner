@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 # Absolute path to this script
@@ -391,7 +390,6 @@ function restore_secrets() {
   #rm -rf /opt/backup/secrets
 }
 
-
 is_kubectl_exists
 echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
 
@@ -423,7 +421,6 @@ else
   fi
   install_product_app
 fi
-
 
 echo "=============================================================================================" | tee -a ${LOG_FILE}
 echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
