@@ -19,7 +19,7 @@ K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.7"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-13"
+PRODUCT_VERSION="1.24.0-14"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
@@ -231,7 +231,7 @@ function install_aria2(){
       set +e
       curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
       rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-      yum install -y epel-release autocomplete >>${LOG_FILE} 2>&1
+      yum install -y epel-release >>${LOG_FILE} 2>&1
       yum install -y aria2 >>${LOG_FILE} 2>&1
       set -e
   fi  
@@ -309,7 +309,7 @@ function online_packages_installation() {
           set +e
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-          yum install -y epel-release autocomplete >>${LOG_FILE} 2>&1
+          yum install -y epel-release bash-completion >>${LOG_FILE} 2>&1
           #yum install -y epel-release bzip2 autocomplete >>${LOG_FILE} 2>&1
           set -e
       fi
