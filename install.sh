@@ -13,7 +13,7 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.10"
+K8S_BASE_VERSION="1.0.11"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.7"
@@ -195,7 +195,13 @@ function is_kubectl_exists() {
 }
 
 function is_tar_files_exists(){
-  for file in ${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz; do
+  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz "
+  if [ -x "$(command -v apt-get)" ]; then
+    TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
+  else
+    TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
+  fi
+  for file in ${TAR_FILES_LIST}; do
       if [[ ! -f "${BASEDIR}/$file" ]] ; then
           echo "Missing $file it's required for installation to success" | tee -a ${LOG_FILE}
           exit 1
@@ -280,12 +286,12 @@ function download_files() {
   if [ "${DOWNLOAD_LIST}" ]; then
     aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
   fi
-  
+
   ## RENAME DOWNLOADED YQ
   if [ -f yq_linux_amd64 ]; then
     mv yq_linux_amd64 yq
   fi
-  
+
   ## ALLOW EXECUTION
   chmod +x yq *.sh
 }
@@ -316,6 +322,11 @@ function online_packages_installation() {
   fi
 }
 
+function extract_apt_repo_tar_file(){
+    mkdir -p /opt/packages >>${LOG_FILE} 2>&1
+    tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages >>${LOG_FILE} 2>&1
+}
+
 function nvidia_drivers_installation() {
   echo "" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
@@ -335,8 +346,7 @@ function nvidia_drivers_installation() {
         apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub >>${LOG_FILE} 2>&1
         sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
       else
-        mkdir -p /opt/packages >>${LOG_FILE} 2>&1
-        tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages >>${LOG_FILE} 2>&1
+        extract_apt_repo_tar_file
         mkdir -p /etc/apt-orig >>${LOG_FILE} 2>&1
         rsync -q -a --ignore-existing /etc/apt/ /etc/apt-orig/ >>${LOG_FILE} 2>&1
         rm -rf /etc/apt/sources.list.d/* >>${LOG_FILE} 2>&1
@@ -351,7 +361,7 @@ function nvidia_drivers_installation() {
 
     fi
   elif [ -x "$(command -v yum)" ]; then
-    
+
     set +e
     x_exist=$(pgrep -x X)
     set -e
@@ -484,6 +494,7 @@ if [[ $INSTALL_METHOD = "online" ]]; then
     nvidia_drivers_installation
   fi
   install_product_app
+  extract_apt_repo_tar_file
 else
   is_tar_files_exists
   install_gravity
@@ -499,7 +510,7 @@ fi
 
 echo "=============================================================================================" | tee -a ${LOG_FILE}
 echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
-  
+
 if [ $nvidia_installed ]; then
   echo "==                   New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
 fi
