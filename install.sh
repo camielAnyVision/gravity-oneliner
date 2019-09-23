@@ -30,7 +30,6 @@ RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/N
 
 INSTALL_PRODUCT=false
 SKIP_K8S_BASE=false
-SKIP_K8S_BASE=false
 SKIP_K8S_INFRA=false
 SKIP_PRODUCT=false
 SKIP_DRIVERS=false
