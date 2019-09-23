@@ -322,9 +322,22 @@ function online_packages_installation() {
   fi
 }
 
-function extract_apt_repo_tar_file(){
+function extract_apt_repo_tar_file() {
     mkdir -p /opt/packages >>${LOG_FILE} 2>&1
     tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages >>${LOG_FILE} 2>&1
+}
+
+function extract_yum_repo_tar_file() {
+    mkdir -p /opt/packages/public >>${LOG_FILE} 2>&1
+    tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /opt/packages/public >>${LOG_FILE} 2>&1
+    cat >  /etc/yum.repos.d/local.repo <<'EOF'
+[local]
+name=local
+baseurl=http://$(hostname --ip-address | awk '{print $1}'):8085
+enabled=1
+gpgcheck=0
+protect=0
+EOF
 }
 
 function nvidia_drivers_installation() {
@@ -388,11 +401,17 @@ function nvidia_drivers_installation() {
       if [[ $INSTALL_METHOD = "online" ]]; then
         yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       else
-        mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
-        tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
+        #mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
+        #tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
+        extract_yum_repo_tar_file
+        #kernel_version_generic=$(uname -r | cut -d '.' -f -3)
+        #yum install --disablerepo='*' --enablerepo='local' kernel-devel-${kernel_version_generic}* kernel-headers-${kernel_version_generic}* gcc
+        yum install --disablerepo='*' --enablerepo='local' -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       fi
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
+      # relevant_kernel=$(get dir /usr/src/kernels/${kernel_version_generic}*)
+      #${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs --kernel-source-path=/usr/src/kernels/${kernel_version_generic} >>${LOG_FILE} 2>&1
       nvidia_installed=true
     fi
   fi
