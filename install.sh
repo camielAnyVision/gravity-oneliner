@@ -25,7 +25,7 @@ PRODUCT_VERSION="1.24.0-14"
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
 
 # RHEL/CENTOS options
-RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
+RHEL_PACKAGES_FILE_NAME="rhel-packages-20190923.tar"
 RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
 
 INSTALL_PRODUCT=false
