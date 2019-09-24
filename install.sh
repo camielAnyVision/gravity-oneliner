@@ -19,13 +19,13 @@ K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.7"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-13"
+PRODUCT_VERSION="1.24.0-14"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
 
 # RHEL/CENTOS options
-RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
+RHEL_PACKAGES_FILE_NAME="rhel-packages-20190923.tar"
 RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
 RHEL_NVIDIA_DRIVER_NAME="${RHEL_NVIDIA_DRIVER##*/}"
 
@@ -65,20 +65,21 @@ function showhelp {
    echo "Gravity Oneliner Installer"
    echo ""
    echo "OPTIONS:"
-   echo "  [-i|--install-mode] Installation mode [default:aio, cluster]"
-   echo "  [-m|--install-method] Installation method [default:online, airgap (need extra files on same dir as this script)]"
-   echo "  [--download-only] Download all the files to the current location"
-   echo "  [--skip-cluster-check] Skip verify if cluster is already installed"
-   echo "  [--base-url] Base url for downloading the files [default:https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
-   echo "  [--k8s-base-version] K8S base image version [default:${K8S_BASE_VERSION}]"
-   echo "  [--skip-k8s-base] Skip installation of k8s base"
-   echo "  [--k8s-infra-version] K8S infra image [default:${K8S_INFRA_VERSION}]"
-   echo "  [--skip-k8s-infra] Skip installation of k8s infra charts"
-   echo "  [--skip-drivers] Skip installation of Nvidia drivers"
+   echo "  [-i|--install-mode] Installation mode [aio, cluster. Default: aio]"
+   echo "  [-m|--install-method] Installation method [online, airgap (need extra files on same dir as this script). Default: online]"
    echo "  [-p|--product-name] Product name to install"
-   echo "  [-v|--product-version] Product version to install [default:${PRODUCT_VERSION}]"
-   echo "  [--auto-install-product] auto install product"
-   echo "  [--add-migration-chart] add also the migration chart"
+   echo "  [-v|--product-version] Product version to install [Default: ${PRODUCT_VERSION}]"
+   echo "  [--download-only] Download all the installation files to the same location as this script"
+   echo "  [--download-dashboard] Skip the installation of K8S infra charts layer"
+   echo "  [--base-url] Base URL for downloading the installation files [Default: https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
+   echo "  [--auto-install-product] Automatic installation of a product"
+   echo "  [--add-migration-chart] Install also the migration chart"
+   echo "  [--k8s-base-version] K8S base image version [Default: ${K8S_BASE_VERSION}]"
+   echo "  [--k8s-infra-version] K8S infra image [Default:${K8S_INFRA_VERSION}]"
+   echo "  [--skip-cluster-check] Skip cluster checks (preflight) if the cluster is already installed"
+   echo "  [--skip-drivers] Skip the installation of Nvidia drivers"
+   echo "  [--skip-k8s-base] Skip the installation of K8S base layer"
+   echo "  [--skip-k8s-infra] Skip the installation of K8S infra charts layer"
    echo ""
 }
 
@@ -169,6 +170,12 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --download-dashboard)
+        #shift
+            DASHBOARD_EXIST="true"
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -196,7 +203,7 @@ function is_kubectl_exists() {
 }
 
 function is_tar_files_exists(){
-  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz "
+  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz yq "
   if [ -x "$(command -v apt-get)" ]; then
     TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
   else
@@ -211,23 +218,37 @@ function is_tar_files_exists(){
 }
 
 function install_aria2(){
-  ARIA2_VERSION="1.34.0"
-  ARIA2_URL="https://github.com/q3aql/aria2-static-builds/releases/download/v${ARIA2_VERSION}/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2"
-  if [ ! -x "$(command -v aria2c)" ]; then
-    curl -fSsL -o /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 ${ARIA2_URL} >>${LOG_FILE} 2>&1
-    tar jxf /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 -C /tmp >>${LOG_FILE} 2>&1
-    pushd /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1
-    PREFIX=/usr
-    #mkdir -p /etc/ssl/certs/
-    mkdir -p ${PREFIX}/share/man/man1/
-    cp aria2c ${PREFIX}/bin
-    cp man-aria2c ${PREFIX}/share/man/man1/aria2c.1
-    #cp ca-certificates.crt /etc/ssl/certs/
-    chmod 755 ${PREFIX}/bin/aria2c
-    chmod 644 ${PREFIX}/share/man/man1/aria2c.1
-    #chmod 644 /etc/ssl/certs/ca-certificates.crt
-    popd
-  fi
+  # ARIA2_VERSION="1.34.0"
+  # ARIA2_URL="https://github.com/q3aql/aria2-static-builds/releases/download/v${ARIA2_VERSION}/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2"
+  # if [ ! -x "$(command -v aria2c)" ]; then
+  #   curl -fSsL -o /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 ${ARIA2_URL} >>${LOG_FILE} 2>&1
+  #   tar jxf /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 -C /tmp >>${LOG_FILE} 2>&1
+  #   pushd /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1
+  #   PREFIX=/usr
+  #   #mkdir -p /etc/ssl/certs/
+  #   mkdir -p ${PREFIX}/share/man/man1/
+  #   cp aria2c ${PREFIX}/bin
+  #   cp man-aria2c ${PREFIX}/share/man/man1/aria2c.1
+  #   #cp ca-certificates.crt /etc/ssl/certs/
+  #   chmod 755 ${PREFIX}/bin/aria2c
+  #   chmod 644 ${PREFIX}/share/man/man1/aria2c.1
+  #   #chmod 644 /etc/ssl/certs/ca-certificates.crt
+  #   popd
+  # fi
+  if [ -x "$(command -v apt-get)" ]; then
+      set +e
+      apt-get -qq update >>${LOG_FILE} 2>&1
+      set -e
+      apt-get -qq install -y --no-install-recommends curl software-properties-common aria2 >>${LOG_FILE} 2>&1
+      #apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
+  elif [ -x "$(command -v yum)" ]; then
+      set +e
+      curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
+      rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
+      yum install -y epel-release >>${LOG_FILE} 2>&1
+      yum install -y aria2 >>${LOG_FILE} 2>&1
+      set -e
+  fi  
 }
 
 function join_by() { local IFS="$1"; shift; echo "$*"; }
@@ -247,6 +268,14 @@ function download_files() {
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
 
+  if [ "${PRODUCT_NAME}" == "bettertomorrow" ]; then
+    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/1.24.0/AnyVision-1.24.0-linux-x86_64.AppImage"
+  elif [ "${PRODUCT_NAME}" == "facedetect" ]; then
+    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facedetect-dashboard/1.24.0/FaceDetect-1.24.0-linux-x86_64.AppImage"
+  elif [ "${PRODUCT_NAME}" == "facesearch" ]; then
+    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facesearch-dashboard/1.24.0/FaceSearch-1.24.0-linux-x86_64.AppImage"
+  fi
+  
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
@@ -258,6 +287,10 @@ function download_files() {
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
     PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
+  fi
+
+  if [ "${DASHBOARD_EXIST}" == "true" ]; then
+    PACKAGES+=("${DASHBOARD_URL}")
   fi
 
   declare -a PACKAGES_TO_DOWNLOAD
@@ -276,7 +309,7 @@ function download_files() {
 
   ## RENAME DOWNLOADED YQ
   if [ -f yq_linux_amd64 ]; then
-    mv yq_linux_amd64 yq
+    cp -n yq_linux_amd64 yq
   fi
 
   ## ALLOW EXECUTION
@@ -296,20 +329,35 @@ function online_packages_installation() {
           set +e
           apt-get -qq update >>${LOG_FILE} 2>&1
           set -e
-          apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
+          apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
+          #apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
           set +e
           curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
           rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-          yum install -y epel-release bzip2 autocomplete >>${LOG_FILE} 2>&1
+          yum install -y epel-release bash-completion >>${LOG_FILE} 2>&1
+          #yum install -y epel-release bzip2 autocomplete >>${LOG_FILE} 2>&1
           set -e
       fi
   fi
 }
 
-function extract_apt_repo_tar_file(){
+function extract_apt_repo_tar_file() {
     mkdir -p /opt/packages >>${LOG_FILE} 2>&1
     tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages >>${LOG_FILE} 2>&1
+}
+
+function extract_yum_repo_tar_file() {
+    mkdir -p /opt/packages/public >>${LOG_FILE} 2>&1
+    tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /opt/packages/public >>${LOG_FILE} 2>&1
+    cat >  /etc/yum.repos.d/local.repo <<EOF
+[local]
+name=local
+baseurl=http://$(hostname --ip-address | awk '{print $1}'):8085
+enabled=1
+gpgcheck=0
+protect=0
+EOF
 }
 
 function nvidia_drivers_installation() {
@@ -373,11 +421,17 @@ function nvidia_drivers_installation() {
       if [[ $INSTALL_METHOD = "online" ]]; then
         yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       else
-        mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
-        tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
+        #mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
+        #tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
+        extract_yum_repo_tar_file
+        #kernel_version_generic=$(uname -r | cut -d '.' -f -3)
+        #yum install --disablerepo='*' --enablerepo='local' kernel-devel-${kernel_version_generic}* kernel-headers-${kernel_version_generic}* gcc
+        yum install --disablerepo='*' --enablerepo='local' -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       fi
       chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
       ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
+      # relevant_kernel=$(get dir /usr/src/kernels/${kernel_version_generic}*)
+      #${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs --kernel-source-path=/usr/src/kernels/${kernel_version_generic} >>${LOG_FILE} 2>&1
       nvidia_installed=true
     fi
   fi
@@ -410,6 +464,9 @@ function install_gravity() {
 }
 
 function create_admin() {
+  echo "" | tee -a ${LOG_FILE}
+  echo "### Create admin" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}
   cat <<'EOF' > admin.yaml
 ---
 kind: user
@@ -447,15 +504,22 @@ function install_product_app() {
 }
 
 function restore_secrets() {
-  relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
-  for secret in $secrets_list
-  do
-    if [ -f "/opt/backup/secrets/${secret}.yaml" ]; then
-      echo "Import secret ${secret}"
-      kubectl create secret -f /opt/backup/secrets/${secret}.yaml || true
-    fi
-  done
-  #rm -rf /opt/backup/secrets
+  if [ -d "/opt/backup/secrets" ]; then
+    echo "" | tee -a ${LOG_FILE}
+    echo "=====================================================================" | tee -a ${LOG_FILE}
+    echo "==                Restoring k8s Secrets...                         ==" | tee -a ${LOG_FILE}
+    echo "=====================================================================" | tee -a ${LOG_FILE}
+    echo "" | tee -a ${LOG_FILE}  
+    declare -a relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
+    for secret in "${relevant_secrets_list[@]}"
+    do
+      if [ -f "/opt/backup/secrets/${secret}.yaml" ]; then
+        echo "Import secret ${secret}" | tee -a ${LOG_FILE}
+        kubectl create -f /opt/backup/secrets/${secret}.yaml || true >>${LOG_FILE} 2>&1
+      fi
+    done
+    #rm -rf /opt/backup/secrets
+  fi
 }
 
 

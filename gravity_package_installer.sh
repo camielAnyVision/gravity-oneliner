@@ -17,7 +17,7 @@ if [ $PACKAGE_CONTENT ]; then
   printf "#### Pushing $APP_STRING to Gravity Ops Center (background process) ...\n"
   nohup gravity app import --force --insecure --ops-url=https://localhost:3009 $PACKAGE >> /var/log/gravity_ops_import__${REPO_NAME}_${APP_NAME}_${APP_VERSION}.log 2>&1 &
   printf "#### Importing $APP_STRING to local Gravity repository ...\n"
-  gravity app import $PACKAGE
+  gravity app import --force $PACKAGE
   printf "#### Exporting $APP_STRING to local Docker registry ...\n"
   gravity exec gravity app export $APP_STRING
   printf "#### Executing $APP_STRING install hook ...\n"
@@ -25,7 +25,7 @@ if [ $PACKAGE_CONTENT ]; then
   if [ $? == 0 ]; then
     echo "Error: hook for $APP_STRING exited with non-zero status."
   fi
-  printf "\n\nDone!\n"
+  printf "\n\nDone Installing App: $APP_STRING \n"
 else
   PACKAGE_CONTENT=$(timeout 0.3 tar tf $PACKAGE app.yaml 2>/dev/null)
   if [ $PACKAGE_CONTENT ]; then

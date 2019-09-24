@@ -1,15 +1,10 @@
 #!/bin/bash
-
 set -e
 
 # Absolute path to this script
 SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
 BASEDIR=$(dirname "$SCRIPT")
-INSTALL_MODE="aio"
-INSTALL_METHOD="online"
-PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.23.1-5"
 
 
 ## Permissions check
@@ -40,111 +35,138 @@ function showhelp {
   echo "  [-h|--help] help"
   echo "  [-a|--all] Perform all arguments"
   echo "  [-s|--backup-secrets] Backup secrets"
-  echo "  [-k|--disable-k3s] Disable k3s"
-  echo "  [-d|--disable-docker] Disable Docker"
+  echo "  [-k|--remove-k8s] Remove k8s"
+  echo "  [-d|--remove-docker] Remove Docker"
   echo "  [-n|--remove-nvidia-docker] Remove Nvidia-docker"
   echo "  [-v|--remove-nvidia-drivers] Remove Nvidia drivers"
   echo ""
 }
 
-function is_kubectl_exists {
-  ## Check if this machine is part of an existing Kubernetes cluster
-  if gravity status --quiet > /dev/null 2>&1; then
-    echo "Gravity cluster is already installed"
-    if [ -x "$(command -v kubectl)" ]; then
-      if [[ $(kubectl cluster-info) == *'Kubernetes master'*'running'*'https://'* ]]; then
-        echo "" | tee -a ${LOG_FILE}
-        echo "Error: this machine is a part of an existing Kubernetes cluster, please detach it before running this installer." | tee -a ${LOG_FILE}
-        exit 1
-        KUBECTL_EXISTS=true
+function backup_secrets {
+  if kubectl cluster info > /dev/null 2&>1; then
+    mkdir -p /opt/backup/secrets
+    echo "#### Backing up Kubernetes secrets..."
+    secrets_list=$(kubectl get secrets --no-headers --output=custom-columns=PHASE:.metadata.name)
+    relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
+    for secret in $secrets_list
+    do
+      if [[ "${relevant_secrets_list[@]}" =~ "${secret}" ]]; then
+        echo "#### Backing up secret $secret"
+        kubectl get secret $secret -o yaml | grep -v "^  \(creation\|resourceVersion\|selfLink\|uid\)" > /opt/backup/secrets/$secret.yaml
       fi
-    fi
+    done
+  else
+    echo "#### kubectl does not exists, skipping secrets backup phase."
   fi
 }
 
-function backup_secrets {
-  mkdir -p /opt/backup/secrets
-  echo "###########################"
-  echo "# Backing up secrets. . . #"
-  echo "###########################"
-  secrets_list=$(kubectl get secret | tail -n +2 | awk '{print $1}')
-  relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
-  for secret in $secrets_list
-  do
-    if [[ " ${relevant_secrets_list[@]} " =~ " ${secret} " ]]; then
-      echo "Backing up secret $secret"
-      kubectl get secret $secret -o yaml | grep -v "^  \(creation\|resourceVersion\|selfLink\|uid\)" > /opt/backup/secrets/$secret.yaml
-    fi
-  done
-
-}
-
 function remove_nvidia_drivers {
-  if [ -x "$(command -v apt-get)" ]; then
-    if dpkg-query --show nvidia-driver-410 ; then
-      echo "Nvidia driver is already on the right version (410)"
-    else
-      echo "###############################"
-      echo "# Removing Nvidia driver. . . #"
-      echo "###############################"
-      apt remove -y --purge nvidia-* cuda-*
+  if [ -x "$(command -v nvidia-smi)" ]; then
+    nvidia_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader || true)
+  fi
+  if [[ "${nvidia_version}" =~ "410."* ]] ; then
+    echo "nvidia driver version 410 is already installed, skipping."
+  else
+    echo "#### Removing Nvidia Driver ${nvidia_version} and Nvidia Docker..."
+    if [ -x "$(command -v apt-get)" ]; then
+      set +e
+      # remove if installed from apt
+      apt remove -y --purge *nvidia* cuda*
       apt autoremove
       add-apt-repository -y --remove ppa:graphics-drivers/ppa
-    fi
-  elif [ -x "$(command -v yum)" ]; then
-    if [ $(modinfo nvidia -F version) == "410.104" ]; then
-      echo "Nvidia driver is already on the right version (410)"
-    else
-      echo "###############################"
-      echo "# Removing Nvidia driver. . . #"
-      echo "###############################"
-      ./$(ls -la | grep NVIDIA-Linux | awk '{print $NF}') --silent --no-install-compat32-libs --uninstall
+      # remove if installed from runfile
+      nvidia-uninstall --silent --uninstall > /dev/null 2>&1
+      set -e
+    elif [ -x "$(command -v yum)" ]; then
+      set +e
+      # remove if installed from yum
+      yum remove *nvidia* cuda* -y
+      yum autoremove -y
+      # remove if installed from runfile
+      nvidia-uninstall --silent --uninstall > /dev/null 2>&1
+      set -e
     fi
   fi
 }
 
 function remove_nvidia_docker {
-  if [ -x "$(command -v apt-get)" ]; then
-    if  [ -x "$(command -v nvidia-docker)" ]; then
-      echo "###############################"
-      echo "# Removing Nvidia-Docker. . . #"
-      echo "###############################"
-      apt remove -y --purge nvidia-docker*
+  if [ -x "$(command -v nvidia-docker)" ]; then
+    echo "#### Removing Nvidia-Docker..."
+    if [ -x "$(command -v apt-get)" ]; then
+      set +e
+      apt remove -y --purge nvidia-docker* nvidia-container* libnvidia-container*
       apt autoremove
+      set -e
+    elif [ -x "$(command -v yum)" ]; then
+      set +e
+      yum remove -y nvidia-docker* nvidia-container-* libnvidia-container*
+      yum autoremove -y
+      set -e
+      
     fi
-  elif [ -x "$(command -v yum)" ]; then
-      echo "###############################"
-      echo "# Removing Nvidia-Docker. . . #"
-      echo "###############################"
-      yum remove -y nvidia*
+  else
+    echo "#### nvidia-docker does not exists, skipping nvidia-docker removal phase."
   fi
 }
 
-function disable_k3s {
-  echo "###################################"
-  echo "# Stopping and disabling K3S. . . #"
-  echo "###################################"
-  systemctl stop k3s
-  systemctl disable k3s
-  k3s-uninstall.sh
+function disable_k8s {
+
+  if [ -x "$(command -v k3s-uninstall.sh)" ]; then
+    echo "###################################"
+    echo "# Uninstalling K3S. . . #"
+    echo "###################################"
+    systemctl stop k3s
+    systemctl is-enabled --quiet k3s && echo "#### Disabling k3s service..." && systemctl disable k3s
+    k3s-uninstall.sh
+  elif [ -x "$(command -v kubeadm)" ]; then
+    echo "###################################"
+    echo "# Uninstalling K8S. . . #"
+    echo "###################################"
+    kubeadm reset --force
+    if [ -x "$(command -v apt-get)" ]; then
+      apt-get purge kubeadm kubectl kubelet kubernetes-cni kube* -y
+      apt-get autoremove -y
+    elif [ -x "$(command -v yum)" ]; then
+      yum remove kubeadm kubectl kubelet kubernetes-cni kube* -y
+      yum autoremove -y
+    fi
+    rm -rf ~/.kube
+    rm -rf /etc/kubernetes
+  fi
+
 }
 
 function disable_docker {
-  echo "############################################"
-  echo "# Killing and removing all containers. . . #"
-  echo "############################################"
-  docker kill $(docker ps -q)
-  docker rm $(docker ps -aq)
-  docker system prune -f
-  echo "######################################"
-  echo "# Stopping and disabling Docker. . . #"
-  echo "######################################"
-  systemctl stop docker
-  systemctl disable docker
-  if [ -x "$(command -v apt-get)" ]; then
-    apt remove -y --purge docker*
-  elif [ -x "$(command -v yum)" ]; then
-    yum remove -y docker*
+  if [ -x "$(command -v docker)" ] && systemctl is-active --quiet docker; then
+    echo "############################################"
+    echo "# Killing and removing all containers. . . #"
+    echo "############################################"
+    set +e
+    docker kill $(docker ps -q)
+    docker rm $(docker ps -aq)
+    docker network prune -f
+    docker system prune -f
+    set -e
+    echo "######################################"
+    echo "# Uninstalling Docker. . . #"
+    echo "######################################"
+    systemctl stop docker
+    systemctl is-enabled --quiet docker && echo "#### Disabling Docker service..." && systemctl disable docker
+    if [ -x "$(command -v apt-get)" ]; then
+      apt remove -y --purge docker* container*
+      apt autoremove -y
+    elif [ -x "$(command -v yum)" ]; then
+      yum remove -y docker* container*
+      yum autoremove -y
+    fi
+    if [ -f /usr/local/bin/docker-compose ]; then
+      echo "######################################"
+      echo "# Removing docker-compose. . . #"
+      echo "######################################"
+      rm -f /usr/local/bin/docker-compose
+    fi
+  else
+    echo "#### docker does not exists or is disabled, skipping docker service disabling phase."
   fi
 }
 
@@ -158,32 +180,46 @@ while test $# -gt 0; do
         ;;
         -a|--all)
         backup_secrets
-        disable_k3s
+        disable_k8s
         disable_docker
         remove_nvidia_docker
         remove_nvidia_drivers
-        exit 0
+        shift
+        continue        
+        #exit 0
         ;;
         -s|--backup-secrets)
         backup_secrets
+        shift
+        continue        
+        #exit 0
+        ;;
+        -k|--remove-k8s)
+        disable_k8s
         exit 0
         ;;
-        -k|--disable-k3s)
-        disable_k3s
-        exit 0
-        ;;
-        -d|--disable-docker)
+        -d|--remove-docker)
         disable_docker
-        exit 0
+        shift
+        continue         
+        #exit 0
         ;;
         -n|--remove-nvidia-docker)
         remove_nvidia_docker
-        exit 0
+        shift
+        continue         
+        #exit 0
         ;;
         -v|--remove-nvidia-drivers)
         remove_nvidia_drivers
-        exit 0
+        shift
+        continue         
+        #exit 0
         ;;
     esac
     break
 done
+
+echo "======================================================"
+echo "==               Cleanup Completed!                 =="
+echo "======================================================"
