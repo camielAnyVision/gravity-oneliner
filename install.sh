@@ -67,7 +67,7 @@ function showhelp {
    echo "OPTIONS:"
    echo "  [-i|--install-mode] Installation mode [aio, cluster. Default: aio]"
    echo "  [-m|--install-method] Installation method [online, airgap (need extra files on same dir as this script). Default: online]"
-   echo "  [-p|--product-name] Product name to install [Example: bettertomorrow]"
+   echo "  [-p|--product-name] Product name to install"
    echo "  [-v|--product-version] Product version to install [Default: ${PRODUCT_VERSION}]"
    echo "  [--download-only] Download all the installation files to the same location as this script"
    echo "  [--base-url] Base URL for downloading the installation files [Default: https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
