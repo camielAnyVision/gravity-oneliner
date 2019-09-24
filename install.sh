@@ -368,8 +368,8 @@ function nvidia_drivers_installation() {
   fi
   ## BUILD DISTRIBUTION STRING
   DISTRIBUTION=${ID}${VERSION}
-  if [[ -f "${BASEDIR}/nvidia-driver-418.40.04-${DISTRIBUTION}.tar.gz" ]]; then
-    install_gravity_app "${BASEDIR}/nvidia-driver-418.40.04-${DISTRIBUTION}.tar.gz"
+  if [[ -f "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}.tar.gz" ]]; then
+    install_gravity_app "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}.tar.gz"
   fi
 }
 
