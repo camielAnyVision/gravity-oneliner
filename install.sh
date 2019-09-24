@@ -70,6 +70,7 @@ function showhelp {
    echo "  [-p|--product-name] Product name to install"
    echo "  [-v|--product-version] Product version to install [Default: ${PRODUCT_VERSION}]"
    echo "  [--download-only] Download all the installation files to the same location as this script"
+   echo "  [--download-dashboard] Skip the installation of K8S infra charts layer"
    echo "  [--base-url] Base URL for downloading the installation files [Default: https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
    echo "  [--auto-install-product] Automatic installation of a product"
    echo "  [--add-migration-chart] Install also the migration chart"
@@ -169,6 +170,12 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --download-dashboard)
+        #shift
+            DASHBOARD_EXIST="true"
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -261,6 +268,14 @@ function download_files() {
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
 
+  if [ "${PRODUCT_NAME}" == "bettertomorrow" ]; then
+    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/1.24.0/AnyVision-1.24.0-linux-x86_64.AppImage"
+  elif [ "${PRODUCT_NAME}" == "facedetect" ]; then
+    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facedetect-dashboard/1.24.0/FaceDetect-1.24.0-linux-x86_64.AppImage"
+  elif [ "${PRODUCT_NAME}" == "facesearch" ]; then
+    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facesearch-dashboard/1.24.0/FaceSearch-1.24.0-linux-x86_64.AppImage"
+  fi
+  
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
@@ -272,6 +287,10 @@ function download_files() {
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
     PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
+  fi
+
+  if [ "${DASHBOARD_EXIST}" == "true" ]; then
+    PACKAGES+=("${DASHBOARD_URL}")
   fi
 
   declare -a PACKAGES_TO_DOWNLOAD
