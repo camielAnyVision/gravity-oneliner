@@ -64,10 +64,10 @@ function remove_nvidia_drivers {
   if [ -x "$(command -v nvidia-smi)" ]; then
     nvidia_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader || true)
   fi
-  if [[ "${nvidia_version}" =~ "410.*" ]] ; then
-    echo "nvidia driver version 410 already installed, skipping."
+  if [[ "${nvidia_version}" =~ "410."* ]] ; then
+    echo "nvidia driver version 410 is already installed, skipping."
   else
-    echo "#### Removing Nvidia Driver and Nvidia Docker..."
+    echo "#### Removing Nvidia Driver ${nvidia_version} and Nvidia Docker..."
     if [ -x "$(command -v apt-get)" ]; then
       set +e
       # remove if installed from apt
