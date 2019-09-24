@@ -290,7 +290,7 @@ function download_files() {
 
   ## RENAME DOWNLOADED YQ
   if [ -f yq_linux_amd64 ]; then
-    mv yq_linux_amd64 yq
+    cp -n yq_linux_amd64 yq
   fi
 
   ## ALLOW EXECUTION
@@ -445,6 +445,9 @@ function install_gravity() {
 }
 
 function create_admin() {
+  echo "" | tee -a ${LOG_FILE}
+  echo "### Create admin" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}
   cat <<'EOF' > admin.yaml
 ---
 kind: user
