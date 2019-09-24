@@ -20,13 +20,14 @@ K8S_INFRA_VERSION="1.0.7"
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.24.0-13"
 
+# NVIDIA driver options
+NVIDIA_DRIVER_VERSION="410.104.0"
+
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
-UBUNTU_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-418.40.04-ubuntu18.04.tar.gz"
 
 # RHEL/CENTOS options
 RHEL_PACKAGES_FILE_NAME="rhel-packages-20190821.tar"
-RHEL_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-418.40.04-rhel7.tar.gz"
 
 INSTALL_PRODUCT=false
 SKIP_K8S_BASE=false
@@ -78,6 +79,7 @@ function showhelp {
    echo "  [-v|--product-version] Product version to install [default:${PRODUCT_VERSION}]"
    echo "  [--auto-install-product] auto install product"
    echo "  [--add-migration-chart] add also the migration chart"
+   echo "  [--driver-version] NVIDIA driver version [default:${NVIDIA_DRIVER_VERSION}]"
    echo ""
 }
 
@@ -168,6 +170,12 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --driver-version)
+        shift
+            NVIDIA_DRIVER_VERSION=${1:-$NVIDIA_DRIVER_VERSION}
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -176,6 +184,8 @@ done
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
+UBUNTU_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu18.04.tar.gz"
+RHEL_NVIDIA_DRIVER="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7.tar.gz"
 
 function is_kubectl_exists() {
   if [ "${SKIP_CLUSTER_CHECK}" == "false" ]; then
