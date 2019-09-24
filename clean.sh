@@ -35,7 +35,7 @@ function showhelp {
   echo "  [-h|--help] help"
   echo "  [-a|--all] Perform all arguments"
   echo "  [-s|--backup-secrets] Backup secrets"
-  echo "  [-k|--remove-k8s] Uninstall k8s"
+  echo "  [-k|--remove-k8s] Remove k8s"
   echo "  [-d|--remove-docker] Remove Docker"
   echo "  [-n|--remove-nvidia-docker] Remove Nvidia-docker"
   echo "  [-v|--remove-nvidia-drivers] Remove Nvidia drivers"
@@ -43,7 +43,7 @@ function showhelp {
 }
 
 function backup_secrets {
-  if [ -x "$(command -v kubectl)" ]; then
+  if kubectl cluster info > /dev/null 2&>1; then
     mkdir -p /opt/backup/secrets
     echo "#### Backing up Kubernetes secrets..."
     secrets_list=$(kubectl get secrets --no-headers --output=custom-columns=PHASE:.metadata.name)
@@ -75,36 +75,37 @@ function remove_nvidia_drivers {
       apt autoremove
       add-apt-repository -y --remove ppa:graphics-drivers/ppa
       # remove if installed from runfile
-      nvidia-uninstall --silent --uninstall
+      nvidia-uninstall --silent --uninstall > /dev/null 2>&1
       set -e
     elif [ -x "$(command -v yum)" ]; then
       set +e
       # remove if installed from yum
-      yum remove *nvidia* cuda*
+      yum remove *nvidia* cuda* -y
+      yum autoremove -y
       # remove if installed from runfile
-      nvidia-uninstall --silent --uninstall
+      nvidia-uninstall --silent --uninstall > /dev/null 2>&1
       set -e
     fi
   fi
 }
 
 function remove_nvidia_docker {
-  if [ "${do_uninstall}" == "true" ]; then
-    if [ -x "$(command -v nvidia-docker)" ]; then
-      echo "#### Removing Nvidia-Docker..."
-      if [ -x "$(command -v apt-get)" ]; then
-        set +e
-        apt remove -y --purge nvidia-docker* nvidia-container-* libnvidia-container*
-        apt autoremove
-        set -e
-      elif [ -x "$(command -v yum)" ]; then
-        set +e
-        yum remove -y nvidia-docker* nvidia-container-* libnvidia-container*
-        set -e
-      fi
-    else
-      echo "#### nvidia-docker does not exists, skipping nvidia-docker removal phase."
+  if [ -x "$(command -v nvidia-docker)" ]; then
+    echo "#### Removing Nvidia-Docker..."
+    if [ -x "$(command -v apt-get)" ]; then
+      set +e
+      apt remove -y --purge nvidia-docker* nvidia-container-* libnvidia-container*
+      apt autoremove
+      set -e
+    elif [ -x "$(command -v yum)" ]; then
+      set +e
+      yum remove -y nvidia-docker* nvidia-container-* libnvidia-container*
+      yum autoremove -y
+      set -e
+      
     fi
+  else
+    echo "#### nvidia-docker does not exists, skipping nvidia-docker removal phase."
   fi
 }
 
@@ -117,11 +118,11 @@ function disable_k8s {
     systemctl stop k3s
     systemctl is-enabled --quiet k3s && echo "#### Disabling k3s service..." && systemctl disable k3s
     k3s-uninstall.sh
-  elif [ -x "$(command -v kubeadm)" ]
+  elif [ -x "$(command -v kubeadm)" ]; then
     echo "###################################"
     echo "# Uninstalling K8S. . . #"
     echo "###################################"
-    kubeadm reset
+    kubeadm reset --force
     if [ -x "$(command -v apt-get)" ]; then
       apt-get purge kubeadm kubectl kubelet kubernetes-cni kube* -y
       apt-get autoremove -y
@@ -153,8 +154,10 @@ function disable_docker {
     systemctl is-enabled --quiet docker && echo "#### Disabling Docker service..." && systemctl disable docker
     if [ -x "$(command -v apt-get)" ]; then
       apt remove -y --purge docker*
+      apt autoremove -y
     elif [ -x "$(command -v yum)" ]; then
       yum remove -y docker*
+      yum autoremove -y
     fi
   else
     echo "#### docker does not exists or is disabled, skipping docker service disabling phase."
@@ -210,3 +213,7 @@ while test $# -gt 0; do
     esac
     break
 done
+
+echo "======================================================"
+echo "==               Cleanup Completed!                 =="
+echo "======================================================"
