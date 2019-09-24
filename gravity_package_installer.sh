@@ -25,7 +25,7 @@ if [ $PACKAGE_CONTENT ]; then
   if [ $? == 0 ]; then
     echo "Error: hook for $APP_STRING exited with non-zero status."
   fi
-  printf "\n\nDone!\n"
+  printf "\n\nDone Installing App: $APP_STRING \n"
 else
   PACKAGE_CONTENT=$(timeout 0.3 tar tf $PACKAGE app.yaml 2>/dev/null)
   if [ $PACKAGE_CONTENT ]; then

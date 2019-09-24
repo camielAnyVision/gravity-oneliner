@@ -331,7 +331,7 @@ function extract_apt_repo_tar_file() {
 function extract_yum_repo_tar_file() {
     mkdir -p /opt/packages/public >>${LOG_FILE} 2>&1
     tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /opt/packages/public >>${LOG_FILE} 2>&1
-    cat >  /etc/yum.repos.d/local.repo <<'EOF'
+    cat >  /etc/yum.repos.d/local.repo <<EOF
 [local]
 name=local
 baseurl=http://$(hostname --ip-address | awk '{print $1}'):8085
