@@ -485,20 +485,22 @@ function install_product_app() {
 }
 
 function restore_secrets() {
-  echo "" | tee -a ${LOG_FILE}
-  echo "=====================================================================" | tee -a ${LOG_FILE}
-  echo "==                Restoring k8s Secrets...                         ==" | tee -a ${LOG_FILE}
-  echo "=====================================================================" | tee -a ${LOG_FILE}
-  echo "" | tee -a ${LOG_FILE}  
-  declare -a relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
-  for secret in "${relevant_secrets_list[@]}"
-  do
-    if [ -f "/opt/backup/secrets/${secret}.yaml" ]; then
-      echo "Import secret ${secret}" | tee -a ${LOG_FILE}
-      kubectl create -f /opt/backup/secrets/${secret}.yaml || true >>${LOG_FILE} 2>&1
-    fi
-  done
-  #rm -rf /opt/backup/secrets
+  if [ -d "/opt/backup/secrets" ]; then
+    echo "" | tee -a ${LOG_FILE}
+    echo "=====================================================================" | tee -a ${LOG_FILE}
+    echo "==                Restoring k8s Secrets...                         ==" | tee -a ${LOG_FILE}
+    echo "=====================================================================" | tee -a ${LOG_FILE}
+    echo "" | tee -a ${LOG_FILE}  
+    declare -a relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
+    for secret in "${relevant_secrets_list[@]}"
+    do
+      if [ -f "/opt/backup/secrets/${secret}.yaml" ]; then
+        echo "Import secret ${secret}" | tee -a ${LOG_FILE}
+        kubectl create -f /opt/backup/secrets/${secret}.yaml || true >>${LOG_FILE} 2>&1
+      fi
+    done
+    #rm -rf /opt/backup/secrets
+  fi
 }
 
 
