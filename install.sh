@@ -196,7 +196,7 @@ function is_kubectl_exists() {
 }
 
 function is_tar_files_exists(){
-  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz "
+  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz yq "
   if [ -x "$(command -v apt-get)" ]; then
     TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
   else
