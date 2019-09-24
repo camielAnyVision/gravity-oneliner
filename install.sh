@@ -268,11 +268,11 @@ function download_files() {
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
 
-  if [ "${PRODUCT_NAME}" == "bettertomorrow"]; then
+  if [ "${PRODUCT_NAME}" == "bettertomorrow" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/1.24.0/AnyVision-1.24.0-linux-x86_64.AppImage"
-  elif [ "${PRODUCT_NAME}" == "facedetect"]; then
+  elif [ "${PRODUCT_NAME}" == "facedetect" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facedetect-dashboard/1.24.0/FaceDetect-1.24.0-linux-x86_64.AppImage"
-  elif [ "${PRODUCT_NAME}" == "facesearch"]; then
+  elif [ "${PRODUCT_NAME}" == "facesearch" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facesearch-dashboard/1.24.0/FaceSearch-1.24.0-linux-x86_64.AppImage"
   fi
   

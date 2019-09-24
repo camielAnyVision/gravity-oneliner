@@ -94,7 +94,7 @@ function remove_nvidia_docker {
     echo "#### Removing Nvidia-Docker..."
     if [ -x "$(command -v apt-get)" ]; then
       set +e
-      apt remove -y --purge nvidia-docker* nvidia-container-* libnvidia-container*
+      apt remove -y --purge nvidia-docker* nvidia-container* libnvidia-container*
       apt autoremove
       set -e
     elif [ -x "$(command -v yum)" ]; then
@@ -153,10 +153,10 @@ function disable_docker {
     systemctl stop docker
     systemctl is-enabled --quiet docker && echo "#### Disabling Docker service..." && systemctl disable docker
     if [ -x "$(command -v apt-get)" ]; then
-      apt remove -y --purge docker*
+      apt remove -y --purge docker* container*
       apt autoremove -y
     elif [ -x "$(command -v yum)" ]; then
-      yum remove -y docker*
+      yum remove -y docker* container*
       yum autoremove -y
     fi
     if [ -f /usr/local/bin/docker-compose ]; then
