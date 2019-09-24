@@ -159,6 +159,12 @@ function disable_docker {
       yum remove -y docker*
       yum autoremove -y
     fi
+    if [ -f /usr/local/bin/docker-compose ]; then
+      echo "######################################"
+      echo "# Removing docker-compose. . . #"
+      echo "######################################"
+      rm -f /usr/local/bin/docker-compose
+    fi
   else
     echo "#### docker does not exists or is disabled, skipping docker service disabling phase."
   fi
