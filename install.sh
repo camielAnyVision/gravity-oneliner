@@ -353,7 +353,7 @@ function extract_yum_repo_tar_file() {
     cat >  /etc/yum.repos.d/local.repo <<EOF
 [local]
 name=local
-baseurl=http://$(hostname --ip-address | awk '{print $1}'):8085
+baseurl=http://localhost:8085
 enabled=1
 gpgcheck=0
 protect=0
