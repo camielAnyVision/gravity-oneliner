@@ -27,7 +27,7 @@ APT_REPO_FILE_NAME="apt-repo-20190821.tar"
 # RHEL/CENTOS options
 RHEL_PACKAGES_FILE_NAME="rhel-packages-20190923.tar"
 RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
-RHEL_NVIDIA_DRIVER_NAME="${RHEL_NVIDIA_DRIVER##*/}"
+RHEL_NVIDIA_DRIVER_FILE="${RHEL_NVIDIA_DRIVER##*/}"
 
 INSTALL_PRODUCT=false
 SKIP_K8S_BASE=false
@@ -203,11 +203,21 @@ function is_kubectl_exists() {
 }
 
 function is_tar_files_exists(){
-  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz yq "
-  if [ -x "$(command -v apt-get)" ]; then
-    TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
-  else
-    TAR_FILES_LIST+="${RHEL_PACKAGES_FILE_NAME} ${RHEL_NVIDIA_DRIVER_NAME}"
+  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz yq"
+  if [ "$SKIP_PRODUCT" = false ]; then
+    TAR_FILES_LIST+=${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz
+  fi
+  if [ "$SKIP_DRIVERS" = false ]; then
+    if [ -x "$(command -v apt-get)" ]; then
+      if [ $INSTALL_METHOD = "airgap" ]; then
+        TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
+      fi
+    else
+      TAR_FILES_LIST+="${RHEL_NVIDIA_DRIVER_FILE}"
+      if [ $INSTALL_METHOD = "airgap" ]; then
+        TAR_FILES_LIST+="${RHEL_PACKAGES_FILE_NAME}"
+      fi
+    fi
   fi
   for file in ${TAR_FILES_LIST}; do
       if [[ ! -f "${BASEDIR}/$file" ]] ; then
@@ -311,9 +321,6 @@ function download_files() {
   if [ -f yq_linux_amd64 ]; then
     cp -n yq_linux_amd64 yq
   fi
-
-  ## ALLOW EXECUTION
-  chmod +x yq *.sh
 }
 
 function online_packages_installation() {
@@ -428,10 +435,10 @@ function nvidia_drivers_installation() {
         #yum install --disablerepo='*' --enablerepo='local' kernel-devel-${kernel_version_generic}* kernel-headers-${kernel_version_generic}* gcc
         yum install --disablerepo='*' --enablerepo='local' -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       fi
-      chmod +x ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run >>${LOG_FILE} 2>&1
-      ${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
+      chmod +x ${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} >>${LOG_FILE} 2>&1
+      ${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
       # relevant_kernel=$(get dir /usr/src/kernels/${kernel_version_generic}*)
-      #${BASEDIR}/NVIDIA-Linux-x86_64-410.104.run --silent --no-install-compat32-libs --kernel-source-path=/usr/src/kernels/${kernel_version_generic} >>${LOG_FILE} 2>&1
+      #${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} --silent --no-install-compat32-libs --kernel-source-path=/usr/src/kernels/${kernel_version_generic} >>${LOG_FILE} 2>&1
       nvidia_installed=true
     fi
   fi
@@ -535,6 +542,7 @@ if [[ $INSTALL_METHOD = "online" ]]; then
     exit 0
   fi
   is_tar_files_exists
+  chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
   install_gravity
   create_admin
   restore_secrets
@@ -543,9 +551,9 @@ if [[ $INSTALL_METHOD = "online" ]]; then
     nvidia_drivers_installation
   fi
   install_product_app
-  extract_apt_repo_tar_file
 else
   is_tar_files_exists
+  chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
   install_gravity
   create_admin
   restore_secrets
