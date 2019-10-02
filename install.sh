@@ -203,7 +203,7 @@ function is_kubectl_exists() {
 }
 
 function is_tar_files_exists(){
-  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz yq"
+  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz yq "
   if [ "$SKIP_PRODUCT" = false ]; then
     TAR_FILES_LIST+=${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz
   fi
