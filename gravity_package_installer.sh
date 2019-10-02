@@ -22,7 +22,7 @@ if [ $PACKAGE_CONTENT ]; then
   gravity exec gravity app export $APP_STRING
   printf "#### Executing $APP_STRING install hook ...\n"
   gravity exec gravity app hook $@ $APP_STRING install
-  if [ $? == 0 ]; then
+  if [ $? -ne 0 ]; then
     echo "Error: hook for $APP_STRING exited with non-zero status."
   fi
   printf "\n\nDone Installing App: $APP_STRING \n"
