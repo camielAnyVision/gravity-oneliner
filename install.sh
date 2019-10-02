@@ -349,14 +349,7 @@ function online_packages_installation() {
   fi
 }
 
-function extract_apt_repo_tar_file() {
-    mkdir -p /opt/packages >>${LOG_FILE} 2>&1
-    tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages >>${LOG_FILE} 2>&1
-}
-
-function extract_yum_repo_tar_file() {
-    mkdir -p /opt/packages/public >>${LOG_FILE} 2>&1
-    tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /opt/packages/public >>${LOG_FILE} 2>&1
+function create_yum_local_repo() {
     cat >  /etc/yum.repos.d/local.repo <<EOF
 [local]
 name=local
@@ -386,7 +379,8 @@ function nvidia_drivers_installation() {
         apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub >>${LOG_FILE} 2>&1
         sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
       else
-        extract_apt_repo_tar_file
+        mkdir -p /opt/packages >>${LOG_FILE} 2>&1
+        tar -xf ${BASEDIR}/${APT_REPO_FILE_NAME} -C /opt/packages >>${LOG_FILE} 2>&1
         mkdir -p /etc/apt-orig >>${LOG_FILE} 2>&1
         rsync -q -a --ignore-existing /etc/apt/ /etc/apt-orig/ >>${LOG_FILE} 2>&1
         rm -rf /etc/apt/sources.list.d/* >>${LOG_FILE} 2>&1
@@ -430,7 +424,9 @@ function nvidia_drivers_installation() {
       else
         #mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
         #tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
-        extract_yum_repo_tar_file
+        mkdir -p /opt/packages/public >>${LOG_FILE} 2>&1
+        tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /opt/packages/public >>${LOG_FILE} 2>&1
+        create_yum_local_repo
         #kernel_version_generic=$(uname -r | cut -d '.' -f -3)
         #yum install --disablerepo='*' --enablerepo='local' kernel-devel-${kernel_version_generic}* kernel-headers-${kernel_version_generic}* gcc
         yum install --disablerepo='*' --enablerepo='local' -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
