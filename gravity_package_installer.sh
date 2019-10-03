@@ -15,17 +15,17 @@ shift
 if [ -n "${PACKAGE_CONTENT}" ]; then
   APP_VERSION=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command "${BASEDIR}/yq r - metadata.resourceVersion; true")
   if [ -z "${APP_VERSION}" ]; then
-    Could not read '$APP_VERSION', exiting. | tee -a ${LOG_FILE}
+    printf "Could not read '$APP_VERSION', exiting." | tee -a ${LOG_FILE}
     exit 1
   fi
   APP_NAME=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command "${BASEDIR}/yq r - metadata.name; true")
   if [ -z "${APP_NAME}" ]; then
-    Could not read '$APP_NAME', exiting. | tee -a ${LOG_FILE}
+    printf "Could not read '$APP_NAME', exiting." | tee -a ${LOG_FILE}
     exit 1
   fi
   REPO_NAME=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command "${BASEDIR}/yq r - metadata.repository; true")
   if [ -z "${REPO_NAME}" ]; then
-    Could not read '$REPO_NAME', exiting. | tee -a ${LOG_FILE}
+    printf "Could not read '$REPO_NAME', exiting." | tee -a ${LOG_FILE}
     exit 1
   fi
   APP_STRING="${REPO_NAME}/${APP_NAME}:${APP_VERSION}"
