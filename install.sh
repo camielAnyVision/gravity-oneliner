@@ -29,32 +29,32 @@ RHEL_PACKAGES_FILE_NAME="rhel-packages-20190923.tar"
 RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
 RHEL_NVIDIA_DRIVER_FILE="${RHEL_NVIDIA_DRIVER##*/}"
 
-INSTALL_PRODUCT=false
-SKIP_K8S_BASE=false
-SKIP_K8S_INFRA=false
-SKIP_PRODUCT=false
-SKIP_DRIVERS=false
-DOWNLOAD_ONLY=false
-SKIP_CLUSTER_CHECK=false
-MIGRATION_EXIST=false
+INSTALL_PRODUCT="false"
+SKIP_K8S_BASE="false"
+SKIP_K8S_INFRA="false"
+SKIP_PRODUCT="false"
+SKIP_DRIVERS="false"
+DOWNLOAD_ONLY="false"
+SKIP_CLUSTER_CHECK="false"
+MIGRATION_EXIST="false"
 
 echo "------ Staring Gravity installer $(date '+%Y-%m-%d %H:%M:%S')  ------" >${LOG_FILE} 2>&1
 
 ## Permissions check
-if [[ $EUID -ne 0 ]]; then
+if [[ ${EUID} -ne 0 ]]; then
    echo "Error: This script must be run as root." | tee -a ${LOG_FILE}
    echo "Installation failed, please contact support." | tee -a ${LOG_FILE}
    exit 1
 fi
 
 ## Get home Dir of the current user
-if [ $SUDO_USER ]; then
-  user=$SUDO_USER
+if [ ${SUDO_USER} ]; then
+  user=${SUDO_USER}
 else
   user=`whoami`
 fi
 
-if [ ${user} == "root" ]; then
+if [ "${user}" == "root" ]; then
   user_home_dir="/${user}"
 else
   user_home_dir="/home/${user}"
@@ -80,6 +80,7 @@ function showhelp {
    echo "  [--skip-drivers] Skip the installation of Nvidia drivers"
    echo "  [--skip-k8s-base] Skip the installation of K8S base layer"
    echo "  [--skip-k8s-infra] Skip the installation of K8S infra charts layer"
+   echo "  [--skip-product] Skip the installation of product"
    echo ""
 }
 
@@ -159,19 +160,21 @@ while test $# -gt 0; do
         continue
         ;;
         --auto-install-product)
-        #shift
             INSTALL_PRODUCT="true"
         shift
         continue
         ;;
+        --skip-product)
+            SKIP_PRODUCT="true"
+        shift
+        continue
+        ;;
         --add-migration-chart)
-        #shift
             MIGRATION_EXIST="true"
         shift
         continue
         ;;
         --download-dashboard)
-        #shift
             DASHBOARD_EXIST="true"
         shift
         continue
@@ -204,24 +207,24 @@ function is_kubectl_exists() {
 
 function is_tar_files_exists(){
   TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz yq "
-  if [ "$SKIP_PRODUCT" = false ]; then
+  if [ "${SKIP_PRODUCT}" == "false" ]; then
     TAR_FILES_LIST+=${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz
   fi
-  if [ "$SKIP_DRIVERS" = false ]; then
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
     if [ -x "$(command -v apt-get)" ]; then
-      if [ $INSTALL_METHOD = "airgap" ]; then
+      if [ "${INSTALL_METHOD}" == "airgap" ]; then
         TAR_FILES_LIST+=${APT_REPO_FILE_NAME}
       fi
     else
       TAR_FILES_LIST+="${RHEL_NVIDIA_DRIVER_FILE}"
-      if [ $INSTALL_METHOD = "airgap" ]; then
+      if [ "${INSTALL_METHOD}" == "airgap" ]; then
         TAR_FILES_LIST+="${RHEL_PACKAGES_FILE_NAME}"
       fi
     fi
   fi
   for file in ${TAR_FILES_LIST}; do
-      if [[ ! -f "${BASEDIR}/$file" ]] ; then
-          echo "Missing $file it's required for installation to success" | tee -a ${LOG_FILE}
+      if [[ ! -f "${BASEDIR}/${file}" ]] ; then
+          echo "Missing ${file} it's required for installation to success" | tee -a ${LOG_FILE}
           exit 1
       fi
   done
@@ -258,7 +261,7 @@ function install_aria2(){
       yum install -y epel-release >>${LOG_FILE} 2>&1
       yum install -y aria2 >>${LOG_FILE} 2>&1
       set -e
-  fi  
+  fi
 }
 
 function join_by() { local IFS="$1"; shift; echo "$*"; }
@@ -285,7 +288,7 @@ function download_files() {
   elif [ "${PRODUCT_NAME}" == "facesearch" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facesearch-dashboard/1.24.0/FaceSearch-1.24.0-linux-x86_64.AppImage"
   fi
-  
+
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
@@ -375,7 +378,7 @@ function nvidia_drivers_installation() {
       echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
     else
       echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
-      if [[ $INSTALL_METHOD = "online" ]]; then
+      if [[ "${INSTALL_METHOD}" == "online" ]]; then
         apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub >>${LOG_FILE} 2>&1
         sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
       else
@@ -419,7 +422,7 @@ function nvidia_drivers_installation() {
     else
       echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
 
-      if [[ $INSTALL_METHOD = "online" ]]; then
+      if [[ "${INSTALL_METHOD}" == "online" ]]; then
         yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       else
         #mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
@@ -442,7 +445,7 @@ function nvidia_drivers_installation() {
 
 function install_gravity() {
   ## Install gravity
-  if [[ "$SKIP_K8S_BASE" = false ]]; then
+  if [[ "${SKIP_K8S_BASE}" == "false" ]]; then
     echo "" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "==                Installing Gravity, please wait...               ==" | tee -a ${LOG_FILE}
@@ -492,13 +495,13 @@ function install_gravity_app() {
 }
 
 function install_k8s_infra_app() {
-  if [[ "$SKIP_K8S_INFRA" = false ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
+  if [[ "${SKIP_K8S_INFRA}" == "false" ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
     install_gravity_app "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" --env=rancher=true
   fi
 }
 
 function install_product_app() {
-  if [[ "$SKIP_PRODUCT" = false ]] && [[ -f "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]]; then
+  if [[ "${SKIP_PRODUCT}" == "false" ]] && [[ -f "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]]; then
     install_gravity_app "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" --env=install_product=${INSTALL_PRODUCT}
     if [ "$MIGRATION_EXIST" == "true" ] && [ -f "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" ] ; then
       install_gravity_app "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" --env=install_product=false
@@ -512,7 +515,7 @@ function restore_secrets() {
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "==                Restoring k8s Secrets...                         ==" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
-    echo "" | tee -a ${LOG_FILE}  
+    echo "" | tee -a ${LOG_FILE}
     declare -a relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
     for secret in "${relevant_secrets_list[@]}"
     do
@@ -527,9 +530,9 @@ function restore_secrets() {
 
 
 is_kubectl_exists
-echo "Installing mode $INSTALL_MODE with method $INSTALL_METHOD" | tee -a ${LOG_FILE}
+echo "Installing mode ${INSTALL_MODE} with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
 
-if [[ $INSTALL_METHOD = "online" ]]; then
+if [[ "${INSTALL_METHOD}" == "online" ]]; then
   online_packages_installation
   install_aria2
   download_files
@@ -543,10 +546,10 @@ if [[ $INSTALL_METHOD = "online" ]]; then
   create_admin
   restore_secrets
   install_k8s_infra_app
+  install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     nvidia_drivers_installation
   fi
-  install_product_app
 else
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
@@ -554,17 +557,17 @@ else
   create_admin
   restore_secrets
   install_k8s_infra_app
+  install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     nvidia_drivers_installation
   fi
-  install_product_app
 fi
 
 
 echo "=============================================================================================" | tee -a ${LOG_FILE}
 echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
 
-if [ $nvidia_installed ]; then
+if [ ${nvidia_installed} ]; then
   echo "==                   New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
 fi
 echo "=============================================================================================" | tee -a ${LOG_FILE}
