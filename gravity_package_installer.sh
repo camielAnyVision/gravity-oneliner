@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Absolute path to this script
+SCRIPT=$(readlink -f "$0")
+# Absolute path to the script directory
+BASEDIR=$(dirname "$SCRIPT")
+
 PACKAGE=${1}
 LOG_FILE="/var/log/gravity_package_install__${PACKAGE}.log"
 PACKAGE_CONTENT=$(timeout 1 tar tf ${PACKAGE} resources/app.yaml 2>/dev/null)
@@ -8,17 +13,17 @@ PACKAGE_CONTENT=$(timeout 1 tar tf ${PACKAGE} resources/app.yaml 2>/dev/null)
 shift
 
 if [ -n "${PACKAGE_CONTENT}" ]; then
-  APP_VERSION=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command './yq r - metadata.resourceVersion; true')
+  APP_VERSION=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command "${BASEDIR}/yq r - metadata.resourceVersion; true")
   if [ -z "${APP_VERSION}" ]; then
     Could not read '$APP_VERSION', exiting. | tee -a ${LOG_FILE}
     exit 1
   fi
-  APP_NAME=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command './yq r - metadata.name; true')
+  APP_NAME=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command "${BASEDIR}/yq r - metadata.name; true")
   if [ -z "${APP_NAME}" ]; then
     Could not read '$APP_NAME', exiting. | tee -a ${LOG_FILE}
     exit 1
   fi
-  REPO_NAME=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command './yq r - metadata.repository; true')
+  REPO_NAME=$(timeout 1 tar xf ${PACKAGE} resources/app.yaml --to-command "${BASEDIR}/yq r - metadata.repository; true")
   if [ -z "${REPO_NAME}" ]; then
     Could not read '$REPO_NAME', exiting. | tee -a ${LOG_FILE}
     exit 1
