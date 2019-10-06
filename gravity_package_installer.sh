@@ -6,11 +6,17 @@ SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
 BASEDIR=$(dirname "$SCRIPT")
 
+# Package fullpath
 PACKAGE=${1}
-LOG_FILE="/var/log/gravity_package_install__${PACKAGE}.log"
+# Package filename
+PACKAGE_FILENAME="${PACKAGE##*/}"
+# Package name (without file extension)
+PACKAGE_NAME="${PACKAGE_FILENAME%.tar.gz}"
+
+LOG_FILE="/var/log/gravity_package_install__${PACKAGE_NAME}.log"
 PACKAGE_CONTENT=$(timeout 1 tar tf ${PACKAGE} resources/app.yaml 2>/dev/null)
 
-## Shift positionals to remove the package file name from script arguments
+# Shift positionals to remove the package file name from script arguments
 shift
 
 if [ -n "${PACKAGE_CONTENT}" ]; then
