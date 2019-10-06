@@ -35,6 +35,7 @@ function showhelp {
   echo "  [-h|--help] help"
   echo "  [-a|--all] Perform all arguments"
   echo "  [-s|--backup-secrets] Backup secrets"
+  echo "  [-p|--backup-secrets] Backup PV,PVC data"
   echo "  [-k|--remove-k8s] Remove k8s"
   echo "  [-d|--remove-docker] Remove Docker"
   echo "  [-n|--remove-nvidia-docker] Remove Nvidia-docker"
@@ -42,13 +43,14 @@ function showhelp {
   echo ""
 }
 
+
 function backup_secrets {
-  if kubectl cluster info > /dev/null 2&>1; then
+  if kubectl cluster-info > /dev/null 2&>1; then
     mkdir -p /opt/backup/secrets
     echo "#### Backing up Kubernetes secrets..."
-    secrets_list=$(kubectl get secrets --no-headers --output=custom-columns=PHASE:.metadata.name)
+    pv_pvc_list=$(kubectl get secrets --no-headers --output=custom-columns=PHASE:.metadata.name)
     relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
-    for secret in $secrets_list
+    for secret in $pv_pvc_list
     do
       if [[ "${relevant_secrets_list[@]}" =~ "${secret}" ]]; then
         echo "#### Backing up secret $secret"
@@ -59,6 +61,37 @@ function backup_secrets {
     echo "#### kubectl does not exists, skipping secrets backup phase."
   fi
 }
+
+function backup_pv_data {
+    if kubectl cluster-info > /dev/null 2&>1; then
+    mkdir -p /opt/backup/pv
+    echo "#### Backing up Kubernetes PV"
+    pv_list=$(kubectl get pv --no-headers --output=custom-columns=PHASE:.metadata.name)
+    for pv in ${pv_list}
+    do
+        echo "#### Backing up pv ${pv}"
+        kubectl get pv ${pv} -o yaml --export  > /opt/backup/pv/${pv}.yaml
+    done
+    else
+    echo "#### kubectl does not exists, skipping secrets backup phase."
+    fi
+}
+
+function backup_pvc_data {
+    if kubectl cluster-info > /dev/null 2&>1; then
+    mkdir -p /opt/backup/pvc
+    echo "#### Backing up Kubernetes PVC"
+    pvc_list=$(kubectl get pvc --no-headers --output=custom-columns=PHASE:.metadata.name)
+    for pvc in ${pvc_list}
+    do
+        echo "#### Backing up pv ${pvc}"
+        kubectl get pvc ${pvc} -o yaml --export  > /opt/backup/pvc/${pvc}.yaml
+    done
+    else
+    echo "#### kubectl does not exists, skipping secrets backup phase."
+    fi
+}
+
 
 function remove_nvidia_drivers {
   if [ -x "$(command -v nvidia-smi)" ]; then
@@ -102,7 +135,7 @@ function remove_nvidia_docker {
       yum remove -y nvidia-docker* nvidia-container-* libnvidia-container*
       yum autoremove -y
       set -e
-      
+
     fi
   else
     echo "#### nvidia-docker does not exists, skipping nvidia-docker removal phase."
@@ -180,18 +213,27 @@ while test $# -gt 0; do
         ;;
         -a|--all)
         backup_secrets
+        backup_pv_data
+        backup_pvc_data
         disable_k8s
         disable_docker
         remove_nvidia_docker
         remove_nvidia_drivers
         shift
-        continue        
+        continue
         #exit 0
         ;;
         -s|--backup-secrets)
         backup_secrets
         shift
-        continue        
+        continue
+        #exit 0
+        ;;
+        -p|--backup-pv-pvc-data)
+        backup_pv_data
+        backup_pvc_data
+        shift
+        continue
         #exit 0
         ;;
         -k|--remove-k8s)
@@ -201,19 +243,19 @@ while test $# -gt 0; do
         -d|--remove-docker)
         disable_docker
         shift
-        continue         
+        continue
         #exit 0
         ;;
         -n|--remove-nvidia-docker)
         remove_nvidia_docker
         shift
-        continue         
+        continue
         #exit 0
         ;;
         -v|--remove-nvidia-drivers)
         remove_nvidia_drivers
         shift
-        continue         
+        continue
         #exit 0
         ;;
     esac
