@@ -528,6 +528,24 @@ function restore_secrets() {
   fi
 }
 
+function restore_pv_data() {
+  if [ -d "/opt/backup/pv" ]; then
+    echo "" | tee -a ${LOG_FILE}
+    echo "=====================================================================" | tee -a ${LOG_FILE}
+    echo "==                Restoring PV And PVC Data...                         ==" | tee -a ${LOG_FILE}
+    echo "=====================================================================" | tee -a ${LOG_FILE}
+    echo "" | tee -a ${LOG_FILE}
+    for pv in $(find /opt/backup/pv*  -type f)
+    do
+    echo "PVVVV $pv"
+      if [ -f "$pv" ]; then
+        echo "importing PV data ${pv}" | tee -a ${LOG_FILE}
+        kubectl apply -f ${pv} || true >>${LOG_FILE} 2>&1
+      fi
+    done
+    #rm -rf /opt/backup/pv*
+  fi
+}
 
 is_kubectl_exists
 echo "Installing mode ${INSTALL_MODE} with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
@@ -545,6 +563,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   install_gravity
   create_admin
   restore_secrets
+  restore_pv_data
   install_k8s_infra_app
   install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
@@ -556,6 +575,7 @@ else
   install_gravity
   create_admin
   restore_secrets
+  restore_pv_data
   install_k8s_infra_app
   install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
