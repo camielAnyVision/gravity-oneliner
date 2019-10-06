@@ -40,7 +40,7 @@ if [ -n "${PACKAGE_CONTENT}" ]; then
   printf "#### Connecting to Gravity Ops Center ...\n" | tee -a ${LOG_FILE}
   gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
   printf "#### Pushing ${APP_STRING} to Gravity Ops Center (background process) ...\n" | tee -a ${LOG_FILE}
-  nohup gravity app import --force --insecure --ops-url=https://localhost:3009 ${PACKAGE} >> /var/log/gravity_package_ops_import__${PACKAGE}.log 2>&1 &
+  nohup gravity app import --force --insecure --ops-url=https://localhost:3009 ${PACKAGE} >> /var/log/gravity_package_ops_import__${PACKAGE_NAME}.log 2>&1 &
   printf "#### Importing ${APP_STRING} to local Gravity repository ...\n" | tee -a ${LOG_FILE}
   gravity app import --force ${PACKAGE} | tee -a ${LOG_FILE}
   printf "#### Exporting ${APP_STRING} to local Docker registry ...\n" | tee -a ${LOG_FILE}
