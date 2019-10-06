@@ -458,13 +458,10 @@ function install_gravity() {
     cd ${BASEDIR}/${K8S_BASE_NAME}
     ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
         --cloud-provider=generic \
-        --pod-network-cidr="10.244.0.0/16" \
-        --service-cidr="10.100.0.0/16" \
         --service-uid=5000 \
-        --vxlan-port=8472 \
         --cluster=cluster.local \
-        --flavor=aio \
-        --role=aio | tee -a ${LOG_FILE}
+        $@ \                           ## PASS ALL EXTRA ARGUMENTS TO GRAVITY INSTALLER
+        | tee -a ${LOG_FILE}
     cd ${BASEDIR}
   fi
 }
