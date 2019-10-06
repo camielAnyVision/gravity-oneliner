@@ -206,25 +206,25 @@ function is_kubectl_exists() {
 }
 
 function is_tar_files_exists(){
-  TAR_FILES_LIST="${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar ${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz yq "
+  declare -a TAR_FILES_LIST=("${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar" "${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" "yq")
   if [ "${SKIP_PRODUCT}" == "false" ]; then
-    TAR_FILES_LIST+="${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz "
+    TAR_FILES_LIST+=("${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz")
   fi
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     if [ -x "$(command -v apt-get)" ]; then
       if [ "${INSTALL_METHOD}" == "airgap" ]; then
-        TAR_FILES_LIST+="${APT_REPO_FILE_NAME} "
+        TAR_FILES_LIST+=("${APT_REPO_FILE_NAME}")
       fi
     else
-      TAR_FILES_LIST+="${RHEL_NVIDIA_DRIVER_FILE} "
+      TAR_FILES_LIST+=("${RHEL_NVIDIA_DRIVER_FILE}")
       if [ "${INSTALL_METHOD}" == "airgap" ]; then
-        TAR_FILES_LIST+="${RHEL_PACKAGES_FILE_NAME} "
+        TAR_FILES_LIST+=("${RHEL_PACKAGES_FILE_NAME}")
       fi
     fi
   fi
-  for file in ${TAR_FILES_LIST}; do
+  for file in "${TAR_FILES_LIST[@]}"; do
       if [[ ! -f "${BASEDIR}/${file}" ]] ; then
-          echo "Missing ${file} it's required for installation to success" | tee -a ${LOG_FILE}
+          echo "Error: required file ${file} is missing." | tee -a ${LOG_FILE}
           exit 1
       fi
   done
