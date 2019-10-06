@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 # Absolute path to this script
 SCRIPT=$(readlink -f "$0")
