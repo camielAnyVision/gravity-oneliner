@@ -230,38 +230,6 @@ function is_tar_files_exists(){
   done
 }
 
-function install_aria2(){
-  # ARIA2_VERSION="1.34.0"
-  # ARIA2_URL="https://github.com/q3aql/aria2-static-builds/releases/download/v${ARIA2_VERSION}/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2"
-  # if [ ! -x "$(command -v aria2c)" ]; then
-  #   curl -fSsL -o /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 ${ARIA2_URL} >>${LOG_FILE} 2>&1
-  #   tar jxf /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1.tar.bz2 -C /tmp >>${LOG_FILE} 2>&1
-  #   pushd /tmp/aria2-${ARIA2_VERSION}-linux-gnu-64bit-build1
-  #   PREFIX=/usr
-  #   #mkdir -p /etc/ssl/certs/
-  #   mkdir -p ${PREFIX}/share/man/man1/
-  #   cp aria2c ${PREFIX}/bin
-  #   cp man-aria2c ${PREFIX}/share/man/man1/aria2c.1
-  #   #cp ca-certificates.crt /etc/ssl/certs/
-  #   chmod 755 ${PREFIX}/bin/aria2c
-  #   chmod 644 ${PREFIX}/share/man/man1/aria2c.1
-  #   #chmod 644 /etc/ssl/certs/ca-certificates.crt
-  #   popd
-  # fi
-  if [ -x "$(command -v apt-get)" ]; then
-      set +e
-      apt-get -qq update >>${LOG_FILE} 2>&1
-      set -e
-      apt-get -qq install -y --no-install-recommends curl software-properties-common aria2 >>${LOG_FILE} 2>&1
-      #apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
-  elif [ -x "$(command -v yum)" ]; then
-      set +e
-      yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
-      yum install -y aria2 >>${LOG_FILE} 2>&1
-      set -e
-  fi
-}
-
 function join_by() { local IFS="$1"; shift; echo "$*"; }
 
 function download_files() {
@@ -337,13 +305,11 @@ function online_packages_installation() {
           set +e
           apt-get -qq update >>${LOG_FILE} 2>&1
           set -e
-          apt-get -qq install -y --no-install-recommends curl software-properties-common >>${LOG_FILE} 2>&1
-          #apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
+          apt-get -qq install -y --no-install-recommends curl software-properties-common aria2 >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
           set +e
           yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
-          yum install -y bash-completion >>${LOG_FILE} 2>&1
-          #yum install -y epel-release bzip2 autocomplete >>${LOG_FILE} 2>&1
+          yum install -y bash-completion aria2 >>${LOG_FILE} 2>&1
           set -e
       fi
   fi
@@ -531,7 +497,6 @@ echo "Installing mode ${INSTALL_MODE} with method ${INSTALL_METHOD}" | tee -a ${
 
 if [[ "${INSTALL_METHOD}" == "online" ]]; then
   online_packages_installation
-  install_aria2
   download_files
   if [ "${DOWNLOAD_ONLY}" == "true" ]; then
     echo "Download only is enabled" | tee -a ${LOG_FILE}
