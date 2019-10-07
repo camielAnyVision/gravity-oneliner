@@ -279,7 +279,7 @@ function download_files() {
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/on-demand-gravity-1.24.0_migration_answer_file/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
-  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
+  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/1.24.0-macys-migration/install.sh"
 
   if [ "${PRODUCT_NAME}" == "bettertomorrow" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/1.24.0/AnyVision-1.24.0-linux-x86_64.AppImage"
