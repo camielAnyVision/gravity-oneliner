@@ -256,9 +256,7 @@ function install_aria2(){
       #apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
   elif [ -x "$(command -v yum)" ]; then
       set +e
-      curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
-      rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-      yum install -y epel-release >>${LOG_FILE} 2>&1
+      yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
       yum install -y aria2 >>${LOG_FILE} 2>&1
       set -e
   fi
@@ -343,9 +341,8 @@ function online_packages_installation() {
           #apt-get -qq install -y --no-install-recommends curl software-properties-common bzip2 >>${LOG_FILE} 2>&1
       elif [ -x "$(command -v yum)" ]; then
           set +e
-          curl -o epel-release-latest-7.noarch.rpm https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
-          rpm -ivh epel-release-latest-7.noarch.rpm || true >>${LOG_FILE} 2>&1
-          yum install -y epel-release bash-completion >>${LOG_FILE} 2>&1
+          yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
+          yum install -y bash-completion >>${LOG_FILE} 2>&1
           #yum install -y epel-release bzip2 autocomplete >>${LOG_FILE} 2>&1
           set -e
       fi
