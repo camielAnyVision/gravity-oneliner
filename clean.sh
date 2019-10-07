@@ -43,7 +43,7 @@ function showhelp {
 }
 
 function backup_secrets {
-  if kubectl cluster info > /dev/null 2&>1; then
+  if kubectl cluster-info > /dev/null 2&>1; then
     mkdir -p /opt/backup/secrets
     echo "#### Backing up Kubernetes secrets..."
     secrets_list=$(kubectl get secrets --no-headers --output=custom-columns=PHASE:.metadata.name)
@@ -102,7 +102,7 @@ function remove_nvidia_docker {
       yum remove -y nvidia-docker* nvidia-container-* libnvidia-container*
       yum autoremove -y
       set -e
-      
+
     fi
   else
     echo "#### nvidia-docker does not exists, skipping nvidia-docker removal phase."
@@ -185,13 +185,13 @@ while test $# -gt 0; do
         remove_nvidia_docker
         remove_nvidia_drivers
         shift
-        continue        
+        continue
         #exit 0
         ;;
         -s|--backup-secrets)
         backup_secrets
         shift
-        continue        
+        continue
         #exit 0
         ;;
         -k|--remove-k8s)
@@ -201,19 +201,19 @@ while test $# -gt 0; do
         -d|--remove-docker)
         disable_docker
         shift
-        continue         
+        continue
         #exit 0
         ;;
         -n|--remove-nvidia-docker)
         remove_nvidia_docker
         shift
-        continue         
+        continue
         #exit 0
         ;;
         -v|--remove-nvidia-drivers)
         remove_nvidia_drivers
         shift
-        continue         
+        continue
         #exit 0
         ;;
     esac

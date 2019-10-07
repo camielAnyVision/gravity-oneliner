@@ -528,6 +528,17 @@ function restore_secrets() {
   fi
 }
 
+function restore_sw_filer_data() {
+  if [ -f "/opt/backup/pvc_id/filer_pvc_id" ]; then
+    echo "" | tee -a ${LOG_FILE}
+    echo "=====================================================================" | tee -a ${LOG_FILE}
+    echo "==        Restoring SW-Filer Data to /ssd/seaweed-filer/     ==" | tee -a ${LOG_FILE}
+    echo "=====================================================================" | tee -a ${LOG_FILE}
+    echo "" | tee -a ${LOG_FILE}
+    /usr/bin/rsync -a -v --stats --ignore-existing /ssd/local-path-provisioner/$(cat /opt/backup/pvc_id/filer_pvc_id)/* /ssd/seaweed-filer/
+    #rm -rf /opt/backup/pv*
+  fi
+}
 
 is_kubectl_exists
 echo "Installing mode ${INSTALL_MODE} with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
@@ -545,6 +556,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   install_gravity
   create_admin
   restore_secrets
+  restore_sw_filer_data
   install_k8s_infra_app
   install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
@@ -556,6 +568,7 @@ else
   install_gravity
   create_admin
   restore_secrets
+  restore_sw_filer_data
   install_k8s_infra_app
   install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
