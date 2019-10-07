@@ -35,7 +35,7 @@ function showhelp {
   echo "  [-h|--help] help"
   echo "  [-a|--all] Perform all arguments"
   echo "  [-s|--backup-secrets] Backup secrets"
-  echo "  [-p|--backup-sw-pvc] Backup SW-filer pvc id"
+  echo "  [-p|--backup-pv-id] Backup SW-filer pv id"
   echo "  [-k|--remove-k8s] Remove k8s"
   echo "  [-d|--remove-docker] Remove Docker"
   echo "  [-n|--remove-nvidia-docker] Remove Nvidia-docker"

@@ -535,7 +535,7 @@ function restore_sw_filer_data() {
     echo "==        Restoring SW-Filer Data to /ssd/seaweed-filer/     ==" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
-    /usr/bin/rsync -a -v --stats --ignore-existing /ssd/local-path-provisioner/$(cat /opt/backup/pvc_id/filer_pvc_id)/* /ssd/seaweed-filer/
+    /usr/bin/rsync -a -v --stats --ignore-existing /ssd/local-path-provisioner/$(cat /opt/backup/pvc_id/filer_pvc_id | head -1)/* /ssd/seaweed-filer/
     #rm -rf /opt/backup/pv*
   fi
 }
