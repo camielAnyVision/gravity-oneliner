@@ -528,21 +528,14 @@ function restore_secrets() {
   fi
 }
 
-function restore_pv_data() {
-  if [ -d "/opt/backup/pv" ]; then
+function restore_sw_filer_data() {
+  if [ -f "/opt/backup/pvc_id/filer_pvc_id" ]; then
     echo "" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
-    echo "==                Restoring PV And PVC Data...                         ==" | tee -a ${LOG_FILE}
+    echo "==        Restoring SW-Filer Data to /ssd/seaweed-filer/     ==" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
-    for pv in $(find /opt/backup/pv*  -type f)
-    do
-    echo "PVVVV $pv"
-      if [ -f "$pv" ]; then
-        echo "importing PV data ${pv}" | tee -a ${LOG_FILE}
-        kubectl apply -f ${pv} || true >>${LOG_FILE} 2>&1
-      fi
-    done
+    /usr/bin/rsync -a -v --stats --ignore-existing /ssd/local-path-provisioner/$(cat /opt/backup/pvc_id/filer_pvc_id)/* /ssd/seaweed-filer/
     #rm -rf /opt/backup/pv*
   fi
 }
@@ -563,7 +556,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   install_gravity
   create_admin
   restore_secrets
-  restore_pv_data
+  restore_sw_filer_data
   install_k8s_infra_app
   install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
@@ -575,7 +568,7 @@ else
   install_gravity
   create_admin
   restore_secrets
-  restore_pv_data
+  restore_sw_filer_data
   install_k8s_infra_app
   install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then

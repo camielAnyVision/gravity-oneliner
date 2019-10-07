@@ -62,36 +62,17 @@ function backup_secrets {
   fi
 }
 
-function backup_pv_data {
+function backup_pv_id {
     if kubectl cluster-info > /dev/null 2&>1; then
-    mkdir -p /opt/backup/pv
-    echo "#### Backing up Kubernetes PV"
-    pv_list=$(kubectl get pv --no-headers --output=custom-columns=PHASE:.metadata.name)
-    for pv in ${pv_list}
-    do
-        echo "#### Backing up pv ${pv}"
-        kubectl get pv ${pv} -o yaml --export  > /opt/backup/pv/${pv}.yaml
-    done
+    echo "#### Backing up Kubernetes PV ID to /opt/backup/pvc_id/filer_pvc_id"
+    mkdir -p /opt/backup/pvc_id/
+    filer_pv_id=$(kubectl get pvc data-default-seaweedfs-filer-0 --no-headers --output=custom-columns=PHASE:.spec.volumeName)
+    echo "Found Filer PV id $filer_pv_id"
+    echo ${filer_pv_id} > /opt/backup/pvc_id/filer_pvc_id
     else
     echo "#### kubectl does not exists, skipping secrets backup phase."
     fi
 }
-
-function backup_pvc_data {
-    if kubectl cluster-info > /dev/null 2&>1; then
-    mkdir -p /opt/backup/pvc
-    echo "#### Backing up Kubernetes PVC"
-    pvc_list=$(kubectl get pvc --no-headers --output=custom-columns=PHASE:.metadata.name)
-    for pvc in ${pvc_list}
-    do
-        echo "#### Backing up pv ${pvc}"
-        kubectl get pvc ${pvc} -o yaml --export  > /opt/backup/pvc/${pvc}.yaml
-    done
-    else
-    echo "#### kubectl does not exists, skipping secrets backup phase."
-    fi
-}
-
 
 function remove_nvidia_drivers {
   if [ -x "$(command -v nvidia-smi)" ]; then
@@ -213,8 +194,7 @@ while test $# -gt 0; do
         ;;
         -a|--all)
         backup_secrets
-        backup_pv_data
-        backup_pvc_data
+        backup_pv_id
         disable_k8s
         disable_docker
         remove_nvidia_docker
@@ -230,8 +210,7 @@ while test $# -gt 0; do
         #exit 0
         ;;
         -p|--backup-pv-pvc-data)
-        backup_pv_data
-        backup_pvc_data
+        backup_pv_id
         shift
         continue
         #exit 0
