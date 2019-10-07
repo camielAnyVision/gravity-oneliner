@@ -35,6 +35,7 @@ function showhelp {
   echo "  [-h|--help] help"
   echo "  [-a|--all] Perform all arguments"
   echo "  [-s|--backup-secrets] Backup secrets"
+  echo "  [-p|--backup-sw-pvc] Backup SW-filer pvc id"
   echo "  [-k|--remove-k8s] Remove k8s"
   echo "  [-d|--remove-docker] Remove Docker"
   echo "  [-n|--remove-nvidia-docker] Remove Nvidia-docker"
@@ -58,6 +59,18 @@ function backup_secrets {
   else
     echo "#### kubectl does not exists, skipping secrets backup phase."
   fi
+}
+
+function backup_pv_id {
+    if kubectl cluster-info > /dev/null 2&>1; then
+    echo "#### Backing up Kubernetes PV ID to /opt/backup/pvc_id/filer_pvc_id"
+    mkdir -p /opt/backup/pvc_id/
+    filer_pv_id=$(kubectl get pvc data-default-seaweedfs-filer-0 --no-headers --output=custom-columns=PHASE:.spec.volumeName)
+    echo "Found Filer PV id $filer_pv_id"
+    echo ${filer_pv_id} > /opt/backup/pvc_id/filer_pvc_id
+    else
+    echo "#### kubectl does not exists, skipping secrets backup phase."
+    fi
 }
 
 function remove_nvidia_drivers {
@@ -180,6 +193,7 @@ while test $# -gt 0; do
         ;;
         -a|--all)
         backup_secrets
+        backup_pv_id
         disable_k8s
         disable_docker
         remove_nvidia_docker
@@ -190,6 +204,12 @@ while test $# -gt 0; do
         ;;
         -s|--backup-secrets)
         backup_secrets
+        shift
+        continue
+        #exit 0
+        ;;
+        -p|--backup-pv-pvc-data)
+        backup_pv_id
         shift
         continue
         #exit 0
