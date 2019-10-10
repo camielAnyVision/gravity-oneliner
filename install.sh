@@ -298,20 +298,16 @@ function online_packages_installation() {
   echo "==                Installing Packages, please wait...              ==" | tee -a ${LOG_FILE}
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}
-  if [ -x "$(command -v curl)" ] && [ -x "$(command -v ansible)" ]; then
-      true
-  else
-      if [ -x "$(command -v apt-get)" ]; then
-          set +e
-          apt-get -qq update >>${LOG_FILE} 2>&1
-          set -e
-          apt-get -qq install -y --no-install-recommends curl software-properties-common aria2 >>${LOG_FILE} 2>&1
-      elif [ -x "$(command -v yum)" ]; then
-          set +e
-          yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
-          yum install -y bash-completion aria2 >>${LOG_FILE} 2>&1
-          set -e
-      fi
+  if [ -x "$(command -v apt-get)" ]; then
+       set +e
+       apt-get -qq update >>${LOG_FILE} 2>&1
+       set -e
+       apt-get -qq install -y --no-install-recommends curl software-properties-common aria2 >>${LOG_FILE} 2>&1
+  elif [ -x "$(command -v yum)" ]; then
+       set +e
+       yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
+       yum install -y bash-completion aria2 >>${LOG_FILE} 2>&1
+       set -e
   fi
 }
 
