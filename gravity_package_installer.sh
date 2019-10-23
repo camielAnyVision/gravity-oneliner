@@ -51,7 +51,7 @@ if [ -n "${PACKAGE_CONTENT}" ]; then
        APP_STAT=true 
     fi
     
-  if [ -n "${PACKAGE_STAT}" ]; then
+  if [ -n "${APP_STAT}" ]; then
      printf "#### Connecting to Gravity Ops Center ...\n" | tee -a ${LOG_FILE}
      gravity ops connect --insecure https://localhost:3009 admin Passw0rd123 | tee -a ${LOG_FILE}
      printf "#### Pushing ${APP_STRING} to Gravity Ops Center (background process) ...\n" | tee -a ${LOG_FILE}
