@@ -573,10 +573,8 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
-      gravity exec sed -i 's/^#root/root/' /etc/nvidia-container-runtime/config.toml
       nvidia_drivers_container_installation
     else
-      gravity exec sed -i 's/^root/#root/' /etc/nvidia-container-runtime/config.toml
       nvidia_drivers_installation
     fi
   fi
@@ -591,10 +589,8 @@ else
   install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
-      gravity exec sed -i 's/^#root/root/' /etc/nvidia-container-runtime/config.toml
       nvidia_drivers_container_installation
     else
-      gravity exec sed -i 's/^root/#root/' /etc/nvidia-container-runtime/config.toml
       nvidia_drivers_installation
     fi
   fi
