@@ -13,13 +13,13 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.12"
+K8S_BASE_VERSION="1.0.14"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-18"
+PRODUCT_VERSION="1.24.0-20"
 
 # NVIDIA driver options
 NVIDIA_DRIVER_METHOD="host"
