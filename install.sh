@@ -288,7 +288,7 @@ function download_files() {
   if [ -x "$(command -v apt-get)" ]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
-    elif [ "${NVIDIA_DRIVER_METHOD}" == "host" ]; then
+    else
       PACKAGES+=("${APT_REPO_FILE_URL}")
     fi
   elif [ -x "$(command -v yum)" ]; then
