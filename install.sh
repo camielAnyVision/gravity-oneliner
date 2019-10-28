@@ -241,7 +241,7 @@ function is_tar_files_exists(){
       fi
     elif [ -x "$(command -v yum)" ]; then
       if [ "${INSTALL_METHOD}" == "airgap" ] && [ "${NVIDIA_DRIVER_METHOD}" == "host" ]; then
-        TAR_FILES_LIST+=("${RHEL_PACKAGES_FILE_NAME} ${RHEL_NVIDIA_DRIVER_FILE}")
+        TAR_FILES_LIST+=("${RHEL_PACKAGES_FILE_NAME}" "${RHEL_NVIDIA_DRIVER_FILE}")
       elif [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
         TAR_FILES_LIST+=("${RHEL_NVIDIA_DRIVER_CONTAINER_FILE}")
       else
@@ -286,18 +286,16 @@ function download_files() {
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
   if [ -x "$(command -v apt-get)" ]; then
-    if [ "${INSTALL_METHOD}" == "airgap" ] && [ "${NVIDIA_DRIVER_METHOD}" == "host" ]; then
-      PACKAGES+=("${APT_REPO_FILE_URL}")
-    elif [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
+    elif [ "${NVIDIA_DRIVER_METHOD}" == "host" ]; then
+      PACKAGES+=("${APT_REPO_FILE_URL}")
     fi
   elif [ -x "$(command -v yum)" ]; then
-    if [ "${INSTALL_METHOD}" == "airgap" ] && [ "${NVIDIA_DRIVER_METHOD}" == "host" ]; then
-      PACKAGES+=("${RHEL_PACKAGES_FILE_URL} ${RHEL_NVIDIA_DRIVER_URL}")
-    elif [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_URL}")
     else
-      PACKAGES+=("${RHEL_NVIDIA_DRIVER_URL}")
+      PACKAGES+=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER_URL}")
     fi
   fi
 
