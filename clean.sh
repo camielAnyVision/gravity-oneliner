@@ -195,8 +195,8 @@ while test $# -gt 0; do
         backup_secrets
         backup_pv_id
         disable_k8s
-        disable_docker
         remove_nvidia_docker
+        disable_docker       
         remove_nvidia_drivers
         shift
         continue
