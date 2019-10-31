@@ -246,7 +246,7 @@ function download_files() {
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
-  DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/on-demand-1.23.0-sncf/bcee507/AnyVision-1.23.0-linux-x86_64.AppImage"
+  DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/on-demand-1.23.0-sncf/771f355/AnyVision-1.23.0-linux-x86_64.AppImage"
 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
