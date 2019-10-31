@@ -19,7 +19,7 @@ K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
 
 PRODUCT_NAME="bettertomorrow-trtis"
-PRODUCT_VERSION="1.23.0-rc.46"
+PRODUCT_VERSION="1.23.0-rc.47"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
