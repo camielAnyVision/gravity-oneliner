@@ -13,13 +13,13 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.11"
+K8S_BASE_VERSION="1.0.14"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
 
-PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-20"
+PRODUCT_NAME="bettertomorrow-trtis"
+PRODUCT_VERSION="1.23.0-rc.46"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
@@ -241,19 +241,12 @@ function download_files() {
 
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
-  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/development/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_URL="${S3_BUCKET_URL}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/development/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
-
-  if [ "${PRODUCT_NAME}" == "bettertomorrow" ]; then
-    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/1.24.0/AnyVision-1.24.0-linux-x86_64.AppImage"
-  elif [ "${PRODUCT_NAME}" == "facedetect" ]; then
-    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facedetect-dashboard/1.24.0/FaceDetect-1.24.0-linux-x86_64.AppImage"
-  elif [ "${PRODUCT_NAME}" == "facesearch" ]; then
-    DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facesearch-dashboard/1.24.0/FaceSearch-1.24.0-linux-x86_64.AppImage"
-  fi
+  DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/on-demand-1.23.0-sncf/bcee507/AnyVision-1.23.0-linux-x86_64.AppImage"
 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
