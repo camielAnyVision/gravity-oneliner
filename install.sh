@@ -283,7 +283,7 @@ function download_files() {
 
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
-    aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
+    aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --log=/tmp/aria2c.log --check-certificate=false ${DOWNLOAD_LIST}
   fi
 
   ## RENAME DOWNLOADED YQ
