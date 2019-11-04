@@ -87,11 +87,16 @@ function backup_pv_id {
     if kubectl cluster-info > /dev/null 2&>1; then
     echo "#### Backing up Kubernetes PV ID to /opt/backup/pvc_id/filer_pvc_id"
     mkdir -p /opt/backup/pvc_id/
+    set +e
     filer_pv_id=$(kubectl get pvc data-default-seaweedfs-filer-0 --no-headers --output=custom-columns=PHASE:.spec.volumeName)
+    if [[ $? -ne 0 ]]; then
+      echo "#### PVC doesn't exist in this version, skipping pv backup phase."
+    fi
+    set -e 
     echo "Found Filer PV id $filer_pv_id"
     echo ${filer_pv_id} > /opt/backup/pvc_id/filer_pvc_id
     else
-    echo "#### kubectl does not exists, skipping secrets backup phase."
+    echo "#### kubectl does not exists, skipping pv backup phase."
     fi
 }
 
