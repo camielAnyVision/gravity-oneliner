@@ -247,7 +247,6 @@ while test $# -gt 0; do
         ;;
         -k|--remove-k8s)
         disable_k8s
-        exit 0
         ;;
         -d|--remove-docker)
         disable_docker
