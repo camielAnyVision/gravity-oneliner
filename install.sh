@@ -418,7 +418,7 @@ function install_gravity() {
     ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
         --cloud-provider=generic \
         --pod-network-cidr="10.244.0.0/16" \
-        --service-cidr="10.100.0.0/16" \
+        --service-cidr="10.172.0.0/16" \
         --service-uid=5000 \
         --vxlan-port=8472 \
         --cluster=cluster.local \
