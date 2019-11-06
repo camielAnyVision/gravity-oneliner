@@ -19,7 +19,7 @@ K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-20"
+PRODUCT_VERSION="1.24.0-22"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
@@ -418,7 +418,7 @@ function install_gravity() {
     ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
         --cloud-provider=generic \
         --pod-network-cidr="10.244.0.0/16" \
-        --service-cidr="10.100.0.0/16" \
+        --service-cidr="10.172.0.0/16" \
         --service-uid=5000 \
         --vxlan-port=8472 \
         --cluster=cluster.local \
