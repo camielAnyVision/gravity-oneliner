@@ -172,6 +172,9 @@ function disable_docker {
       yum remove -y docker* container*
       yum autoremove -y
     fi
+    if [ -d "/var/lib/docker" ]; then
+      rm -rf /var/lib/docker
+    fi
     if [ -f /usr/local/bin/docker-compose ]; then
       echo "######################################"
       echo "# Removing docker-compose. . . #"
@@ -195,8 +198,8 @@ while test $# -gt 0; do
         backup_secrets
         backup_pv_id
         disable_k8s
-        disable_docker
         remove_nvidia_docker
+        disable_docker       
         remove_nvidia_drivers
         shift
         continue

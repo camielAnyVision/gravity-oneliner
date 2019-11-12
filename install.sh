@@ -19,7 +19,7 @@ K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-20"
+PRODUCT_VERSION="1.24.0-22"
 
 # NVIDIA driver options
 NVIDIA_DRIVER_METHOD="host"
@@ -268,8 +268,8 @@ function download_files() {
 
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
-  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/on-demand-gravity-1.24.0/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
-  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/on-demand-gravity-1.24.0/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/development/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/development/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
@@ -468,7 +468,7 @@ function install_gravity() {
     ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
         --cloud-provider=generic \
         --pod-network-cidr="10.244.0.0/16" \
-        --service-cidr="10.100.0.0/16" \
+        --service-cidr="10.172.0.0/16" \
         --service-uid=5000 \
         --vxlan-port=8472 \
         --cluster=cluster.local \
