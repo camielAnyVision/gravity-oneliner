@@ -13,7 +13,7 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.14"
+K8S_BASE_VERSION="1.0.15"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
@@ -22,7 +22,7 @@ PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.24.0-22"
 
 # NVIDIA driver options
-NVIDIA_DRIVER_METHOD="host"
+NVIDIA_DRIVER_METHOD="container"
 NVIDIA_DRIVER_VERSION="410.104.0"
 
 # UBUNTU Options
@@ -85,7 +85,7 @@ function showhelp {
    echo "  [--skip-k8s-base] Skip the installation of K8S base layer"
    echo "  [--skip-k8s-infra] Skip the installation of K8S infra charts layer"
    echo "  [--skip-product] Skip the installation of product"
-   echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: host]"
+   echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: ${NVIDIA_DRIVER_METHOD}]"
    echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [Default: ${NVIDIA_DRIVER_VERSION}]"
    echo ""
 }
@@ -205,8 +205,8 @@ done
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
-UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu18.04.tar.gz"
-RHEL_NVIDIA_DRIVER_CONTAINER_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com/nvidia-driver/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7.tar.gz"
+UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu18.04.tar.gz"
+RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7.tar.gz"
 UBUNTU_NVIDIA_DRIVER_CONTAINER_FILE="${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 RHEL_NVIDIA_DRIVER_CONTAINER_FILE="${RHEL_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 
@@ -318,7 +318,10 @@ function download_files() {
 
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
+    echo "#### Downloading Files ..." | tee -a ${LOG_FILE}
     aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
+  else
+    echo "#### All the packages are already exist under ${BASEDIR}" | tee -a ${LOG_FILE}
   fi
 
   ## RENAME DOWNLOADED YQ
@@ -335,15 +338,19 @@ function online_packages_installation() {
   echo "" | tee -a ${LOG_FILE}
   if [ -x "$(command -v apt-get)" ]; then
        set +e
+       echo "#### Update the apt repoistory cache" | tee -a ${LOG_FILE}
        apt-get -qq update >>${LOG_FILE} 2>&1
        set -e
+       echo "#### installing the following packages: curl software-properties-common aria2" | tee -a ${LOG_FILE}
        apt-get -qq install -y --no-install-recommends curl software-properties-common aria2 >>${LOG_FILE} 2>&1
   elif [ -x "$(command -v yum)" ]; then
        set +e
+       echo "#### installing the following packages: bash-completion aria2" | tee -a ${LOG_FILE}
        yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
        yum install -y bash-completion aria2 >>${LOG_FILE} 2>&1
        set -e
   fi
+  echo "#### Done installaing packages" | tee -a ${LOG_FILE}
 }
 
 function create_yum_local_repo() {
