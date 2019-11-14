@@ -24,6 +24,7 @@ PRODUCT_VERSION="1.24.0-22"
 # NVIDIA driver options
 NVIDIA_DRIVER_METHOD="container"
 NVIDIA_DRIVER_VERSION="410-104"
+NVIDIA_DRIVER_PACKAGE_VERSION="1.0.0"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
@@ -205,8 +206,8 @@ done
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
-UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/on-demand-gravity-package/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu1804-1.0.0.tar.gz"
-RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/on-demand-gravity-package/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7-1.0.0.tar.gz"
+UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/on-demand-gravity-package/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu1804-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
+RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/on-demand-gravity-package/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
 UBUNTU_NVIDIA_DRIVER_CONTAINER_FILE="${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 RHEL_NVIDIA_DRIVER_CONTAINER_FILE="${RHEL_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 
@@ -366,17 +367,26 @@ EOF
 }
 
 function nvidia_drivers_container_installation() {
-  . /etc/os-release
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==              Installing Nvidia Container, please wait...        ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}
+
+  source /etc/os-release
   ## USE ONLY MAJOR VERSION OF RHEL VERSION
   if [[ "${VERSION_ID}" =~ ^[7,8]\.[0-9]+ ]]; then
     VERSION=${VERSION_ID%%.*}
   else
-    VERSION=${VERSION_ID}
+    VERSION=${VERSION_ID//.}
   fi
   ## BUILD DISTRIBUTION STRING
   DISTRIBUTION=${ID}${VERSION}
-  if [[ -f "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}.tar.gz" ]]; then
-    install_gravity_app "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}.tar.gz"
+  if [[ -f "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz" ]]; then
+    install_gravity_app "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
+  else
+    echo "unable to find the file: ${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz" | tee -a ${LOG_FILE} 
+    exit 1
   fi
 }
 
@@ -475,6 +485,8 @@ function install_gravity() {
         --flavor=aio \
         --role=aio | tee -a ${LOG_FILE}
     cd ${BASEDIR}
+    
+    create_admin
   fi
 }
 
@@ -564,7 +576,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
   install_gravity
-  create_admin
+  #create_admin
   restore_secrets
   restore_sw_filer_data
   install_k8s_infra_app
@@ -581,7 +593,7 @@ else
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
   install_gravity
-  create_admin
+  #create_admin
   restore_secrets
   restore_sw_filer_data
   install_k8s_infra_app
