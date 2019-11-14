@@ -13,7 +13,7 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.15"
+K8S_BASE_VERSION="1.0.13"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
@@ -23,7 +23,7 @@ PRODUCT_VERSION="1.24.0-22"
 
 # NVIDIA driver options
 NVIDIA_DRIVER_METHOD="container"
-NVIDIA_DRIVER_VERSION="410.104.0"
+NVIDIA_DRIVER_VERSION="410-104"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
@@ -86,7 +86,7 @@ function showhelp {
    echo "  [--skip-k8s-infra] Skip the installation of K8S infra charts layer"
    echo "  [--skip-product] Skip the installation of product"
    echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: ${NVIDIA_DRIVER_METHOD}]"
-   echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [Default: ${NVIDIA_DRIVER_VERSION}]"
+   echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [410-104, 418-113. Default: ${NVIDIA_DRIVER_VERSION}]"
    echo ""
 }
 
@@ -205,8 +205,8 @@ done
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
-UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu18.04.tar.gz"
-RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7.tar.gz"
+UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/on-demand-gravity-package/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu18.04-1.0.0.tar.gz"
+RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/on-demand-gravity-package/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7-1.0.0.tar.gz"
 UBUNTU_NVIDIA_DRIVER_CONTAINER_FILE="${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 RHEL_NVIDIA_DRIVER_CONTAINER_FILE="${RHEL_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 
@@ -319,6 +319,7 @@ function download_files() {
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
     echo "#### Downloading Files ..." | tee -a ${LOG_FILE}
+    echo "Downloading Files: $DOWNLOAD_LIST" >>${LOG_FILE} 2>&1
     aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
   else
     echo "#### All the packages are already exist under ${BASEDIR}" | tee -a ${LOG_FILE}
@@ -391,7 +392,7 @@ function nvidia_drivers_installation() {
 
   if [ -x "$(command -v apt-get)" ]; then
     if [[ "${nvidia_version}" == '410'* ]] ; then
-      echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
+      echo "nvidia driver nvidia-driver-410 already installed. Skipping ..." | tee -a ${LOG_FILE}
     else
       echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
       if [[ "${INSTALL_METHOD}" == "online" ]]; then
@@ -406,12 +407,8 @@ function nvidia_drivers_installation() {
         echo "deb [arch=amd64 trusted=yes allow-insecure=yes] http://$(hostname --ip-address | awk '{print $1}'):8085/ bionic main" > /etc/apt/sources.list
       fi
       apt-get update>>${LOG_FILE} 2>&1
-      #echo "Remove old nvidia drivers if exist"
-      #apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
-
       apt-get install -y --no-install-recommends cuda-drivers=410.104-1 >>${LOG_FILE} 2>&1
       nvidia_installed=true
-
     fi
   elif [ -x "$(command -v yum)" ]; then
 
@@ -441,19 +438,13 @@ function nvidia_drivers_installation() {
       if [[ "${INSTALL_METHOD}" == "online" ]]; then
         yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       else
-        #mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
-        #tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
         mkdir -p /opt/packages/public >>${LOG_FILE} 2>&1
         tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /opt/packages/public >>${LOG_FILE} 2>&1
         create_yum_local_repo
-        #kernel_version_generic=$(uname -r | cut -d '.' -f -3)
-        #yum install --disablerepo='*' --enablerepo='local' kernel-devel-${kernel_version_generic}* kernel-headers-${kernel_version_generic}* gcc
         yum install --disablerepo='*' --enablerepo='local' -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       fi
       chmod +x ${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} >>${LOG_FILE} 2>&1
       ${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
-      # relevant_kernel=$(get dir /usr/src/kernels/${kernel_version_generic}*)
-      #${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} --silent --no-install-compat32-libs --kernel-source-path=/usr/src/kernels/${kernel_version_generic} >>${LOG_FILE} 2>&1
       nvidia_installed=true
     fi
   fi
@@ -468,11 +459,13 @@ function install_gravity() {
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
 
-    mkdir -p ${BASEDIR}/${K8S_BASE_NAME}
-    tar -xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar -C ${BASEDIR}/${K8S_BASE_NAME} | tee -a ${LOG_FILE}
+    echo "### Installting gravity k8s base: ${K8S_BASE_NAME}-${K8S_BASE_VERSION}"
+    DIR_K8S_BASE="gravity-base-k8s"
+    mkdir -p "${BASEDIR}/${DIR_K8S_BASE}"
+    tar -xf "${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar" -C "${BASEDIR}/${DIR_K8S_BASE}" | tee -a ${LOG_FILE}
 
-    cd ${BASEDIR}/${K8S_BASE_NAME}
-    ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
+    cd ${BASEDIR}/${DIR_K8S_BASE}
+    ${BASEDIR}/${DIR_K8S_BASE}/gravity install \
         --cloud-provider=generic \
         --pod-network-cidr="10.244.0.0/16" \
         --service-cidr="10.172.0.0/16" \
@@ -558,7 +551,6 @@ function restore_sw_filer_data() {
   fi
 }
 
-is_kubectl_exists
 echo "Installing mode ${INSTALL_MODE} with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
 
 if [[ "${INSTALL_METHOD}" == "online" ]]; then
@@ -568,6 +560,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
     echo "Download only is enabled" | tee -a ${LOG_FILE}
     exit 0
   fi
+  is_kubectl_exists
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
   install_gravity
@@ -584,6 +577,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
     fi
   fi
 else
+  is_kubectl_exists
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
   install_gravity
