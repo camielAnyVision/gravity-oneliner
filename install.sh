@@ -242,7 +242,9 @@ function download_files() {
   K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/development/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_MD5_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/development/${PRODUCT_NAME}-${PRODUCT_VERSION}.md5"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/development/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
+
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
@@ -256,7 +258,7 @@ function download_files() {
   fi
 
   ## SHARED PACKAGES TO DOWNLOAD
-  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
+  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${K8S_PRODUCT_MD5_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
   if [ -x "$(command -v apt-get)" ]; then
     PACKAGES+=("${APT_REPO_FILE_URL}")
@@ -284,6 +286,12 @@ function download_files() {
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
     aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
+  fi
+
+  if [ "$(md5sum ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz)" == "$(cat ${PRODUCT_NAME}-${PRODUCT_VERSION}.md5)  ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]; then
+    echo "${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz was fully downloaded, checksum verified."
+  else
+    echo "${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz wasn't fully downloaded and corrupted, checksum does not match."
   fi
 
   ## RENAME DOWNLOADED YQ
