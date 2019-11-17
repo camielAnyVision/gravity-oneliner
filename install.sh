@@ -81,13 +81,13 @@ function showhelp {
    echo "  [--add-migration-chart] Install also the migration chart"
    echo "  [--k8s-base-version] K8S base image version [Default: ${K8S_BASE_VERSION}]"
    echo "  [--k8s-infra-version] K8S infra image [Default:${K8S_INFRA_VERSION}]"
+   echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: ${NVIDIA_DRIVER_METHOD}]"
+   echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [410-104, 418-113. Default: ${NVIDIA_DRIVER_VERSION}]"   
    echo "  [--skip-cluster-check] Skip cluster checks (preflight) if the cluster is already installed"
    echo "  [--skip-drivers] Skip the installation of Nvidia drivers"
    echo "  [--skip-k8s-base] Skip the installation of K8S base layer"
    echo "  [--skip-k8s-infra] Skip the installation of K8S infra charts layer"
    echo "  [--skip-product] Skip the installation of product"
-   echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: ${NVIDIA_DRIVER_METHOD}]"
-   echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [410-104, 418-113. Default: ${NVIDIA_DRIVER_VERSION}]"
    echo ""
 }
 
