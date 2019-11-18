@@ -580,14 +580,14 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   restore_secrets
   restore_sw_filer_data
   install_k8s_infra_app
-  install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       nvidia_drivers_container_installation
     else
       nvidia_drivers_installation
     fi
-  fi
+  fi  
+  install_product_app
 else
   is_kubectl_exists
   is_tar_files_exists
@@ -597,7 +597,6 @@ else
   restore_secrets
   restore_sw_filer_data
   install_k8s_infra_app
-  install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       nvidia_drivers_container_installation
@@ -605,6 +604,7 @@ else
       nvidia_drivers_installation
     fi
   fi
+  install_product_app
 fi
 
 
