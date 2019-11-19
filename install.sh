@@ -488,7 +488,8 @@ function restore_secrets() {
     do
       if [ -f "/opt/backup/secrets/${secret}.yaml" ]; then
         echo "Import secret ${secret}" | tee -a ${LOG_FILE}
-        kubectl create -f /opt/backup/secrets/${secret}.yaml || true >>${LOG_FILE} 2>&1
+        #kubectl create -f /opt/backup/secrets/${secret}.yaml || true >>${LOG_FILE} 2>&1
+        cat /opt/backup/secrets/${secret}.yaml | ${BASEDIR}/yq d - metadata.managedFields | kubectl create -f - >>${LOG_FILE} 2>&1 || true
       fi
     done
     #rm -rf /opt/backup/secrets
