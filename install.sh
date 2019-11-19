@@ -13,21 +13,26 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.11"
+K8S_BASE_VERSION="1.0.13"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-22"
+PRODUCT_VERSION="1.24.0-23"
+
+# NVIDIA driver options
+NVIDIA_DRIVER_METHOD="container"
+NVIDIA_DRIVER_VERSION="410-104"
+NVIDIA_DRIVER_PACKAGE_VERSION="1.0.0"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
 
 # RHEL/CENTOS options
 RHEL_PACKAGES_FILE_NAME="rhel-packages-20190923.tar"
-RHEL_NVIDIA_DRIVER="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
-RHEL_NVIDIA_DRIVER_FILE="${RHEL_NVIDIA_DRIVER##*/}"
+RHEL_NVIDIA_DRIVER_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
+RHEL_NVIDIA_DRIVER_FILE="${RHEL_NVIDIA_DRIVER_URL##*/}"
 
 INSTALL_PRODUCT="false"
 SKIP_K8S_BASE="false"
@@ -76,6 +81,8 @@ function showhelp {
    echo "  [--add-migration-chart] Install also the migration chart"
    echo "  [--k8s-base-version] K8S base image version [Default: ${K8S_BASE_VERSION}]"
    echo "  [--k8s-infra-version] K8S infra image [Default:${K8S_INFRA_VERSION}]"
+   echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: ${NVIDIA_DRIVER_METHOD}]"
+   echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [410-104, 418-113. Default: ${NVIDIA_DRIVER_VERSION}]"   
    echo "  [--skip-cluster-check] Skip cluster checks (preflight) if the cluster is already installed"
    echo "  [--skip-drivers] Skip the installation of Nvidia drivers"
    echo "  [--skip-k8s-base] Skip the installation of K8S base layer"
@@ -179,6 +186,18 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --driver-method)
+        shift
+            NVIDIA_DRIVER_METHOD=${1:-$NVIDIA_DRIVER_METHOD}
+        shift
+        continue
+        ;;
+        --driver-version)
+        shift
+            NVIDIA_DRIVER_VERSION=${1:-$NVIDIA_DRIVER_VERSION}
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -187,6 +206,10 @@ done
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
+UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/development/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu1804-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
+RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/development/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
+UBUNTU_NVIDIA_DRIVER_CONTAINER_FILE="${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL##*/}"
+RHEL_NVIDIA_DRIVER_CONTAINER_FILE="${RHEL_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 
 function is_kubectl_exists() {
   if [ "${SKIP_CLUSTER_CHECK}" == "false" ]; then
@@ -212,13 +235,18 @@ function is_tar_files_exists(){
   fi
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     if [ -x "$(command -v apt-get)" ]; then
-      if [ "${INSTALL_METHOD}" == "airgap" ]; then
+      if [ "${INSTALL_METHOD}" == "airgap" ] && [ "${NVIDIA_DRIVER_METHOD}" == "host" ]; then
         TAR_FILES_LIST+=("${APT_REPO_FILE_NAME}")
+      elif [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+        TAR_FILES_LIST+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_FILE}")
       fi
-    else
-      TAR_FILES_LIST+=("${RHEL_NVIDIA_DRIVER_FILE}")
-      if [ "${INSTALL_METHOD}" == "airgap" ]; then
-        TAR_FILES_LIST+=("${RHEL_PACKAGES_FILE_NAME}")
+    elif [ -x "$(command -v yum)" ]; then
+      if [ "${INSTALL_METHOD}" == "airgap" ] && [ "${NVIDIA_DRIVER_METHOD}" == "host" ]; then
+        TAR_FILES_LIST+=("${RHEL_PACKAGES_FILE_NAME}" "${RHEL_NVIDIA_DRIVER_FILE}")
+      elif [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+        TAR_FILES_LIST+=("${RHEL_NVIDIA_DRIVER_CONTAINER_FILE}")
+      else
+        TAR_FILES_LIST+=("${RHEL_NVIDIA_DRIVER_FILE}")
       fi
     fi
   fi
@@ -245,7 +273,7 @@ function download_files() {
   K8S_PRODUCT_MD5_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/development/${PRODUCT_NAME}-${PRODUCT_VERSION}.md5"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/development/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
 
-  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
+  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/1.24.0-23/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
 
@@ -261,9 +289,17 @@ function download_files() {
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${K8S_PRODUCT_MD5_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
 
   if [ -x "$(command -v apt-get)" ]; then
-    PACKAGES+=("${APT_REPO_FILE_URL}")
-  else
-    PACKAGES+=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER}")
+    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+      PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
+    else
+      PACKAGES+=("${APT_REPO_FILE_URL}")
+    fi
+  elif [ -x "$(command -v yum)" ]; then
+    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+      PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_URL}")
+    else
+      PACKAGES+=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER_URL}")
+    fi
   fi
 
   if [ "${MIGRATION_EXIST}" == "true" ]; then
@@ -285,7 +321,11 @@ function download_files() {
 
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
+    echo "#### Downloading Files ..." | tee -a ${LOG_FILE}
+    echo "Downloading Files: $DOWNLOAD_LIST" >>${LOG_FILE} 2>&1
     aria2c --summary-interval=30 --force-sequential --auto-file-renaming=false --min-split-size=100M --split=10 --max-concurrent-downloads=5 --check-certificate=false ${DOWNLOAD_LIST}
+  else
+    echo "#### All the packages are already exist under ${BASEDIR}" | tee -a ${LOG_FILE}
   fi
 
   if [ "$(md5sum ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz)" == "$(cat ${PRODUCT_NAME}-${PRODUCT_VERSION}.md5)  ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]; then
@@ -308,15 +348,19 @@ function online_packages_installation() {
   echo "" | tee -a ${LOG_FILE}
   if [ -x "$(command -v apt-get)" ]; then
        set +e
+       echo "#### Update the apt repoistory cache" | tee -a ${LOG_FILE}
        apt-get -qq update >>${LOG_FILE} 2>&1
        set -e
+       echo "#### installing the following packages: curl software-properties-common aria2" | tee -a ${LOG_FILE}
        apt-get -qq install -y --no-install-recommends curl software-properties-common aria2 >>${LOG_FILE} 2>&1
   elif [ -x "$(command -v yum)" ]; then
        set +e
+       echo "#### installing the following packages: bash-completion aria2" | tee -a ${LOG_FILE}
        yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
        yum install -y bash-completion aria2 >>${LOG_FILE} 2>&1
        set -e
   fi
+  echo "#### Done installaing packages" | tee -a ${LOG_FILE}
 }
 
 function create_yum_local_repo() {
@@ -328,6 +372,30 @@ enabled=1
 gpgcheck=0
 protect=0
 EOF
+}
+
+function nvidia_drivers_container_installation() {
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==              Installing Nvidia Container, please wait...        ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}
+
+  source /etc/os-release
+  ## USE ONLY MAJOR VERSION OF RHEL VERSION
+  if [[ "${VERSION_ID}" =~ ^[7,8]\.[0-9]+ ]]; then
+    VERSION=${VERSION_ID%%.*}
+  else
+    VERSION=${VERSION_ID//.}
+  fi
+  ## BUILD DISTRIBUTION STRING
+  DISTRIBUTION=${ID}${VERSION}
+  if [[ -f "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz" ]]; then
+    install_gravity_app "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
+  else
+    echo "unable to find the file: ${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz" | tee -a ${LOG_FILE} 
+    exit 1
+  fi
 }
 
 function nvidia_drivers_installation() {
@@ -342,7 +410,7 @@ function nvidia_drivers_installation() {
 
   if [ -x "$(command -v apt-get)" ]; then
     if [[ "${nvidia_version}" == '410'* ]] ; then
-      echo "nvidia driver nvidia-driver-410 already installed" | tee -a ${LOG_FILE}
+      echo "nvidia driver nvidia-driver-410 already installed. Skipping ..." | tee -a ${LOG_FILE}
     else
       echo "Installing nvidia driver nvidia-driver-410" | tee -a ${LOG_FILE}
       if [[ "${INSTALL_METHOD}" == "online" ]]; then
@@ -357,12 +425,8 @@ function nvidia_drivers_installation() {
         echo "deb [arch=amd64 trusted=yes allow-insecure=yes] http://$(hostname --ip-address | awk '{print $1}'):8085/ bionic main" > /etc/apt/sources.list
       fi
       apt-get update>>${LOG_FILE} 2>&1
-      #echo "Remove old nvidia drivers if exist"
-      #apt remove -y --purge *nvidia* cuda* >>${LOG_FILE} 2>&1
-
       apt-get install -y --no-install-recommends cuda-drivers=410.104-1 >>${LOG_FILE} 2>&1
       nvidia_installed=true
-
     fi
   elif [ -x "$(command -v yum)" ]; then
 
@@ -392,19 +456,13 @@ function nvidia_drivers_installation() {
       if [[ "${INSTALL_METHOD}" == "online" ]]; then
         yum install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       else
-        #mkdir -p /tmp/drivers >>${LOG_FILE} 2>&1
-        #tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /tmp/drivers && yum install -y /tmp/drivers/*.rpm >>${LOG_FILE} 2>&1
         mkdir -p /opt/packages/public >>${LOG_FILE} 2>&1
         tar -xf ${BASEDIR}/${RHEL_PACKAGES_FILE_NAME} -C /opt/packages/public >>${LOG_FILE} 2>&1
         create_yum_local_repo
-        #kernel_version_generic=$(uname -r | cut -d '.' -f -3)
-        #yum install --disablerepo='*' --enablerepo='local' kernel-devel-${kernel_version_generic}* kernel-headers-${kernel_version_generic}* gcc
         yum install --disablerepo='*' --enablerepo='local' -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r) >>${LOG_FILE} 2>&1
       fi
       chmod +x ${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} >>${LOG_FILE} 2>&1
       ${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} --silent --no-install-compat32-libs >>${LOG_FILE} 2>&1
-      # relevant_kernel=$(get dir /usr/src/kernels/${kernel_version_generic}*)
-      #${BASEDIR}/${RHEL_NVIDIA_DRIVER_FILE} --silent --no-install-compat32-libs --kernel-source-path=/usr/src/kernels/${kernel_version_generic} >>${LOG_FILE} 2>&1
       nvidia_installed=true
     fi
   fi
@@ -419,11 +477,13 @@ function install_gravity() {
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
 
-    mkdir -p ${BASEDIR}/${K8S_BASE_NAME}
-    tar -xf ${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar -C ${BASEDIR}/${K8S_BASE_NAME} | tee -a ${LOG_FILE}
+    echo "### Installting gravity k8s base: ${K8S_BASE_NAME}-${K8S_BASE_VERSION}"
+    DIR_K8S_BASE="gravity-base-k8s"
+    mkdir -p "${BASEDIR}/${DIR_K8S_BASE}"
+    tar -xf "${BASEDIR}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar" -C "${BASEDIR}/${DIR_K8S_BASE}" | tee -a ${LOG_FILE}
 
-    cd ${BASEDIR}/${K8S_BASE_NAME}
-    ${BASEDIR}/${K8S_BASE_NAME}/gravity install \
+    cd ${BASEDIR}/${DIR_K8S_BASE}
+    ${BASEDIR}/${DIR_K8S_BASE}/gravity install \
         --cloud-provider=generic \
         --pod-network-cidr="10.244.0.0/16" \
         --service-cidr="10.172.0.0/16" \
@@ -433,6 +493,8 @@ function install_gravity() {
         --flavor=aio \
         --role=aio | tee -a ${LOG_FILE}
     cd ${BASEDIR}
+    
+    create_admin
   fi
 }
 
@@ -510,7 +572,6 @@ function restore_sw_filer_data() {
   fi
 }
 
-is_kubectl_exists
 echo "Installing mode ${INSTALL_MODE} with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
 
 if [[ "${INSTALL_METHOD}" == "online" ]]; then
@@ -520,36 +581,46 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
     echo "Download only is enabled" | tee -a ${LOG_FILE}
     exit 0
   fi
+  is_kubectl_exists
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
   install_gravity
-  create_admin
+  #create_admin
   restore_secrets
   restore_sw_filer_data
   install_k8s_infra_app
-  install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
-    nvidia_drivers_installation
-  fi
+    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+      nvidia_drivers_container_installation
+    else
+      nvidia_drivers_installation
+    fi
+  fi  
+  install_product_app
 else
+  is_kubectl_exists
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
   install_gravity
-  create_admin
+  #create_admin
   restore_secrets
   restore_sw_filer_data
   install_k8s_infra_app
-  install_product_app
   if [ "${SKIP_DRIVERS}" == "false" ]; then
-    nvidia_drivers_installation
+    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+      nvidia_drivers_container_installation
+    else
+      nvidia_drivers_installation
+    fi
   fi
+  install_product_app
 fi
 
 
 echo "=============================================================================================" | tee -a ${LOG_FILE}
-echo "==                                  Installation Completed!                                  " | tee -a ${LOG_FILE}
+echo "                                    Installation Completed!                                  " | tee -a ${LOG_FILE}
+echo "=============================================================================================" | tee -a ${LOG_FILE}
 
 if [ ${nvidia_installed} ]; then
-  echo "==                   New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
+  echo "                  New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
 fi
-echo "=============================================================================================" | tee -a ${LOG_FILE}
