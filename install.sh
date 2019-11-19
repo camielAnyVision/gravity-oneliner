@@ -19,7 +19,7 @@ K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.9"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-22"
+PRODUCT_VERSION="1.24.0-23"
 
 # NVIDIA driver options
 NVIDIA_DRIVER_METHOD="container"
