@@ -36,6 +36,7 @@ function showhelp {
   echo "  [-a|--all] Perform all arguments"
   echo "  [-s|--backup-secrets] Backup secrets"
   echo "  [-p|--backup-pv-id] Backup SW-filer pv id"
+  echo "  [-c|--backup-consul-data] Save consul snapshot"
   echo "  [-k|--remove-k8s] Remove k8s"
   echo "  [-d|--remove-docker] Remove Docker"
   echo "  [-n|--remove-nvidia-docker] Remove Nvidia-docker"
@@ -58,6 +59,27 @@ function backup_secrets {
     done
   else
     echo "#### kubectl does not exists, skipping secrets backup phase."
+  fi
+}
+
+function backup_consul_data {
+  if kubectl cluster-info > /dev/null 2&>1; then
+    # Support catching 1.21 deployments
+    consul_pod=`kubectl get pods -A | egrep "consul-server|consul-dc01"`
+    snapshot_dir="/ssd/consul_data"
+    mkdir -p $snapshot_dir
+    snapshot_file="consul-backup.snap"
+    echo '### Backing up Consul data'
+    kubectl exec $consul_pod consul snapshot save $snapshot_file
+    kubectl cp $consul_pod:$snapshot_file $snapshot_dir/$snapshot_file
+    is_snap=$(file ${snapshot_dir}/${snapshot_file} | grep gzip)
+    if [ -z "$is_snap" ]; then
+      echo "ERROR: Failed to get consul snapshot"
+      exit 1
+    fi
+    echo 'Consul snapshot saved to ${snapshot_dir}/${snapshot_file}!'
+  else
+    echo "#### kubectl does not exists, skipping consul backup phase."
   fi
 }
 
@@ -222,6 +244,7 @@ while test $# -gt 0; do
         -a|--all)
         backup_secrets
         backup_pv_id
+        backup_consul_data
         disable_k8s
         remove_nvidia_docker
         disable_docker       
@@ -236,6 +259,11 @@ while test $# -gt 0; do
         continue
         #exit 0
         ;;
+        -c|--backup-consul-data)
+        backup_consul_data
+        shift
+        continue
+        ;;
         -p|--backup-pv-pvc-data)
         backup_pv_id
         shift
@@ -244,7 +272,6 @@ while test $# -gt 0; do
         ;;
         -k|--remove-k8s)
         disable_k8s
-        exit 0
         ;;
         -d|--remove-docker)
         disable_docker
