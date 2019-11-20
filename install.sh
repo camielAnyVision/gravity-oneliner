@@ -2,6 +2,9 @@
 set -e
 set -o pipefail
 
+# script version
+SCRIPT_VERSION="1.24.0-23"
+
 # Absolute path to this script
 SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
@@ -273,9 +276,9 @@ function download_files() {
   K8S_PRODUCT_MD5_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/development/${PRODUCT_NAME}-${PRODUCT_VERSION}.md5"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/development/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
 
-  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/1.24.0-23/gravity_package_installer.sh"
+  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
-  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
+  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/install.sh"
 
   if [ "${PRODUCT_NAME}" == "bettertomorrow" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/1.24.0/AnyVision-1.24.0-linux-x86_64.AppImage"
