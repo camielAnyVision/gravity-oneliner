@@ -65,19 +65,25 @@ function backup_secrets {
 function backup_consul_data {
   if kubectl cluster-info > /dev/null 2&>1; then
     # Support catching 1.21 deployments
-    consul_pod=`kubectl get pods -A | egrep "consul-server|consul-dc01"`
-    snapshot_dir="/ssd/consul_data"
-    mkdir -p $snapshot_dir
-    snapshot_file="consul-backup.snap"
-    echo '### Backing up Consul data'
-    kubectl exec $consul_pod consul snapshot save $snapshot_file
-    kubectl cp $consul_pod:$snapshot_file $snapshot_dir/$snapshot_file
-    is_snap=$(file ${snapshot_dir}/${snapshot_file} | grep gzip)
-    if [ -z "$is_snap" ]; then
-      echo "ERROR: Failed to get consul snapshot"
-      exit 1
+    set +e
+    consul_pod=`kubectl get pods -A | egrep "consul-server|consul-dc01" | awk '{print $2}'`
+    set -e
+    if [ ${consul_pod} != "" ]; then
+      snapshot_dir="/ssd/consul_data"
+      mkdir -p $snapshot_dir
+      snapshot_file="consul-backup.snap"
+      echo '### Backing up Consul data'
+      kubectl exec $consul_pod consul snapshot save $snapshot_file
+      kubectl cp $consul_pod:$snapshot_file $snapshot_dir/$snapshot_file
+      is_snap=$(file ${snapshot_dir}/${snapshot_file} | grep gzip)
+      if [ -z "$is_snap" ]; then
+        echo "ERROR: Failed to get consul snapshot"
+        exit 1
+      fi
+      echo 'Consul snapshot saved to ${snapshot_dir}/${snapshot_file}!'
+    else
+      echo "#### consul does not exists, skipping consul backup phase."
     fi
-    echo 'Consul snapshot saved to ${snapshot_dir}/${snapshot_file}!'
   else
     echo "#### kubectl does not exists, skipping consul backup phase."
   fi
