@@ -9,7 +9,8 @@ SCRIPT_VERSION="1.24.0-23"
 SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
 BASEDIR=$(dirname "$SCRIPT")
-INSTALL_MODE="aio"
+
+NODE_ROLE="aio"
 INSTALL_METHOD="online"
 LOG_FILE="/var/log/gravity-installer.log"
 S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
@@ -73,24 +74,24 @@ function showhelp {
    echo "Gravity Oneliner Installer"
    echo ""
    echo "OPTIONS:"
-   echo "  [-i|--install-mode] Installation mode [aio, cluster. Default: aio]"
-   echo "  [-m|--install-method] Installation method [online, airgap (need extra files on same dir as this script). Default: online]"
+   echo "  [-r|--node-role] Current node role [aio|backend|edge] (default: aio)"
+   echo "  [-m|--install-method] Installation method [online|airgap] (default: online)"
    echo "  [-p|--product-name] Product name to install"
-   echo "  [-v|--product-version] Product version to install [Default: ${PRODUCT_VERSION}]"
-   echo "  [--download-only] Download all the installation files to the same location as this script"
-   echo "  [--download-dashboard] Skip the installation of K8S infra charts layer"
-   echo "  [--base-url] Base URL for downloading the installation files [Default: https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
-   echo "  [--auto-install-product] Automatic installation of a product"
-   echo "  [--add-migration-chart] Install also the migration chart"
-   echo "  [--k8s-base-version] K8S base image version [Default: ${K8S_BASE_VERSION}]"
-   echo "  [--k8s-infra-version] K8S infra image [Default:${K8S_INFRA_VERSION}]"
-   echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: ${NVIDIA_DRIVER_METHOD}]"
-   echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [410-104, 418-113. Default: ${NVIDIA_DRIVER_VERSION}]"   
-   echo "  [--skip-cluster-check] Skip cluster checks (preflight) if the cluster is already installed"
-   echo "  [--skip-drivers] Skip the installation of Nvidia drivers"
-   echo "  [--skip-k8s-base] Skip the installation of K8S base layer"
-   echo "  [--skip-k8s-infra] Skip the installation of K8S infra charts layer"
-   echo "  [--skip-product] Skip the installation of product"
+   echo "  [-v|--product-version] Product version to install (default: ${PRODUCT_VERSION})"
+   echo "  [--download-only] Download all the required installation files (to ${BASEDIR})"
+   echo "  [--download-dashboard] Download product dashboard (to ${BASEDIR})"
+   echo "  [--base-url] Base URL for downloading the installation files (default: https://gravity-bundles.s3.eu-central-1.amazonaws.com)"
+   echo "  [--auto-install-product] Auto deploy application after installation (from Rancher catalog)"
+   echo "  [--add-migration-chart] Auto deploy migration after installation (from Rancher catalog)"
+   echo "  [--k8s-base-version] Kubernetes/Gravity base version (default: ${K8S_BASE_VERSION})"
+   echo "  [--k8s-infra-version] Infrastructure layer version (default: ${K8S_INFRA_VERSION})"
+   echo "  [--driver-method] Nvidia driver installation method [host|container] (default: ${NVIDIA_DRIVER_METHOD})"
+   echo "  [--driver-version] Nvidia driver version (requires --driver-method=container) [410-104|418-113] (default: ${NVIDIA_DRIVER_VERSION})"   
+   echo "  [--skip-cluster-check] Skip existing cluster check"
+   echo "  [--skip-drivers] Skip Nvidia drivers installation"
+   echo "  [--skip-k8s-base] Skip Kubernetes/Gravity base installation"
+   echo "  [--skip-k8s-infra] Skip infrastructure layer installation"
+   echo "  [--skip-product] Skip product/application installation"
    echo ""
 }
 
@@ -102,9 +103,9 @@ while test $# -gt 0; do
         showhelp
         exit 0
         ;;
-        -i|--install-mode)
+        -r|--node-role)
         shift
-            INSTALL_MODE=${1:-$INSTALL_MODE}
+            NODE_ROLE=${1:-$NODE_ROLE}
         shift
         continue
         ;;
@@ -493,8 +494,8 @@ function install_gravity() {
         --service-uid=5000 \
         --vxlan-port=8472 \
         --cluster=cluster.local \
-        --flavor=aio \
-        --role=aio | tee -a ${LOG_FILE}
+        --flavor=${NODE_ROLE} \
+        --role=${NODE_ROLE} | tee -a ${LOG_FILE}
     cd ${BASEDIR}
     
     create_admin
@@ -575,7 +576,7 @@ function restore_sw_filer_data() {
   fi
 }
 
-echo "Installing mode ${INSTALL_MODE} with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
+echo "Installing ${NODE_ROLE} node with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
 
 if [[ "${INSTALL_METHOD}" == "online" ]]; then
   online_packages_installation
