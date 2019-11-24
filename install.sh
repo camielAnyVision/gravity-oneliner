@@ -50,8 +50,8 @@ echo "------ Staring Gravity installer $(date '+%Y-%m-%d %H:%M:%S')  ------" >${
 
 ## Permissions check
 if [[ ${EUID} -ne 0 ]]; then
-   echo "Error: This script must be run as root." | tee -a ${LOG_FILE}
-   echo "Installation failed, please contact support." | tee -a ${LOG_FILE}
+   echo "Error: This script must be run as root."
+   echo "Installation failed, please contact support."
    exit 1
 fi
 
