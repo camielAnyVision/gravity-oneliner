@@ -2,6 +2,9 @@
 set -e
 set -o pipefail
 
+# script version
+SCRIPT_VERSION="1.24.0-23"
+
 # Absolute path to this script
 SCRIPT=$(readlink -f "$0")
 # Absolute path to the script directory
@@ -16,10 +19,10 @@ K8S_BASE_NAME="anv-base-k8s"
 K8S_BASE_VERSION="1.0.13"
 
 K8S_INFRA_NAME="k8s-infra"
-K8S_INFRA_VERSION="1.0.9"
+K8S_INFRA_VERSION="1.0.11"
 
 PRODUCT_NAME="bettertomorrow-trtis"
-PRODUCT_VERSION="1.23.0-rc.49"
+PRODUCT_VERSION="1.24.0-rc.1"
 
 # NVIDIA driver options
 NVIDIA_DRIVER_METHOD="container"
@@ -271,10 +274,11 @@ function download_files() {
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/development/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
-  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/gravity_package_installer.sh"
+
+  GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
-  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/master/install.sh"
-  DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/on-demand-1.23.0-sncf/38421d7/AnyVision-1.23.0-linux-x86_64.AppImage"
+  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/install.sh"
+  DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/on-demand-sncf-1.24.0/cffc51a/AnyVision-1.24.0-linux-x86_64.AppImage"
 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
