@@ -352,19 +352,19 @@ function online_packages_installation() {
   echo "" | tee -a ${LOG_FILE}
   if [ -x "$(command -v apt-get)" ]; then
        set +e
-       echo "#### Update the apt repoistory cache" | tee -a ${LOG_FILE}
+       echo "#### Updating APT cache..." | tee -a ${LOG_FILE}
        apt-get -qq update >>${LOG_FILE} 2>&1
        set -e
-       echo "#### installing the following packages: curl software-properties-common aria2" | tee -a ${LOG_FILE}
+       echo "#### Installing the following packages: curl software-properties-common aria2" | tee -a ${LOG_FILE}
        apt-get -qq install -y --no-install-recommends curl software-properties-common aria2 >>${LOG_FILE} 2>&1
   elif [ -x "$(command -v yum)" ]; then
        set +e
-       echo "#### installing the following packages: bash-completion aria2" | tee -a ${LOG_FILE}
+       echo "#### Installing the following packages: bash-completion aria2" | tee -a ${LOG_FILE}
        yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >>${LOG_FILE} 2>&1
        yum install -y bash-completion aria2 >>${LOG_FILE} 2>&1
        set -e
   fi
-  echo "#### Done installaing packages" | tee -a ${LOG_FILE}
+  echo "#### Done installing packages." | tee -a ${LOG_FILE}
 }
 
 function create_yum_local_repo() {
