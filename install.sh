@@ -17,7 +17,7 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
-K8S_BASE_VERSION="1.0.13"
+K8S_BASE_VERSION="1.0.14"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.11"
@@ -35,7 +35,7 @@ APT_REPO_FILE_NAME="apt-repo-20190821.tar"
 
 # RHEL/CENTOS options
 RHEL_PACKAGES_FILE_NAME="rhel-packages-20190923.tar"
-RHEL_NVIDIA_DRIVER_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/410.104/NVIDIA-Linux-x86_64-410.104.run"
+RHEL_NVIDIA_DRIVER_URL="http://us.download.nvidia.com/XFree86/Linux-x86_64/418.113/NVIDIA-Linux-x86_64-418.113.run"
 RHEL_NVIDIA_DRIVER_FILE="${RHEL_NVIDIA_DRIVER_URL##*/}"
 
 INSTALL_PRODUCT="false"
@@ -271,7 +271,7 @@ function download_files() {
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}
 
-  K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
+  K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/docker-exposed/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
   K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
   K8S_PRODUCT_URL="${S3_BUCKET_URL}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
   K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/development/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
