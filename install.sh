@@ -279,7 +279,7 @@ function download_files() {
 
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
-  SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/install.sh"
+  SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/install.sh"
 
   if [ "${PRODUCT_NAME}" == "bettertomorrow" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/1.24.0/AnyVision-1.24.0-linux-x86_64.AppImage"
@@ -290,7 +290,7 @@ function download_files() {
   fi
 
   ## SHARED PACKAGES TO DOWNLOAD
-  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${K8S_PRODUCT_MD5_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
+  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${K8S_PRODUCT_MD5_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT_URL}")
 
   if [ -x "$(command -v apt-get)" ]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
@@ -314,6 +314,9 @@ function download_files() {
     PACKAGES+=("${DASHBOARD_URL}")
   fi
 
+  # remove old script if exist before download
+  rm -f ${BASEDIR}/${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL##*/} ${BASEDIR}/${SCRIPT_URL##*/}
+
   declare -a PACKAGES_TO_DOWNLOAD
 
   for url in "${PACKAGES[@]}"; do
@@ -332,16 +335,19 @@ function download_files() {
     echo "#### All the packages are already exist under ${BASEDIR}" | tee -a ${LOG_FILE}
   fi
 
+  echo "#### Perform checksum verification ..."  | tee -a ${LOG_FILE}
   if [ "$(md5sum ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz)" == "$(cat ${PRODUCT_NAME}-${PRODUCT_VERSION}.md5)  ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]; then
-    echo "${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz was fully downloaded, checksum verified."
+    echo "${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz was fully downloaded, checksum verified" | tee -a ${LOG_FILE}
   else
-    echo "${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz wasn't fully downloaded and corrupted, checksum does not match."
+    echo "${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz wasn't fully downloaded and corrupted, checksum does not match" | tee -a ${LOG_FILE}
   fi
 
   ## RENAME DOWNLOADED YQ
   if [ -f yq_linux_amd64 ]; then
     cp -n yq_linux_amd64 yq
   fi
+
+  chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
 }
 
 function online_packages_installation() {
@@ -528,12 +534,22 @@ function install_gravity_app() {
 }
 
 function install_k8s_infra_app() {
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==                Installing infra chart...                        ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}  
   if [[ "${SKIP_K8S_INFRA}" == "false" ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
     install_gravity_app "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" --env=rancher=true
   fi
 }
 
 function install_product_app() {
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==                Installing product chart...                      ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}
   if [[ "${SKIP_PRODUCT}" == "false" ]] && [[ -f "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]]; then
     install_gravity_app "${BASEDIR}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" --env=install_product=${INSTALL_PRODUCT}
     if [ "$MIGRATION_EXIST" == "true" ] && [ -f "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" ] ; then
@@ -582,12 +598,12 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   online_packages_installation
   download_files
   if [ "${DOWNLOAD_ONLY}" == "true" ]; then
-    echo "Download only is enabled" | tee -a ${LOG_FILE}
+    echo "#### Download only is enabled. will exit" | tee -a ${LOG_FILE}
     exit 0
   fi
   is_kubectl_exists
   is_tar_files_exists
-  chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
+  chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
   install_gravity
   #create_admin
   restore_secrets
@@ -604,7 +620,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
 else
   is_kubectl_exists
   is_tar_files_exists
-  chmod +x ${BASEDIR}/yq ${BASEDIR}/*.sh
+  chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
   install_gravity
   #create_admin
   restore_secrets
