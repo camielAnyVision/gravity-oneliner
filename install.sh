@@ -338,7 +338,7 @@ function md5_checker() {
     FILE_NAME_MD5=($(md5sum ${BASEDIR}/${FILE_NAME}))
     echo "#### Perform md5 checksum to ${BASEDIR}/${FILE_NAME}" | tee -a ${LOG_FILE}
     if [ "${FILE_NAME_MD5}" != "$(cat ${BASEDIR}/${FILE_NAME%.tar*}.md5)" ]; then
-      echo "Error: ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz checksum does not match, The file wasn't fully downloaded or may corrupted" | tee -a ${LOG_FILE}
+      echo "Error: ${FILE_NAME} checksum does not match, The file wasn't fully downloaded or may corrupted" | tee -a ${LOG_FILE}
       exit 1
     fi
   else
