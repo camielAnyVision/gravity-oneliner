@@ -49,7 +49,7 @@ function backup_secrets {
     mkdir -p /opt/backup/secrets
     echo "#### Backing up Kubernetes secrets..."
     secrets_list=$(kubectl get secrets --no-headers --output=custom-columns=PHASE:.metadata.name)
-    relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
+    relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret" "memsql-secret")
     for secret in $secrets_list
     do
       if [[ "${relevant_secrets_list[@]}" =~ "${secret}" ]]; then
