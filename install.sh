@@ -84,6 +84,7 @@ function showhelp {
    echo "  [-p|--product-name] Product name to install"
    echo "  [-v|--product-version] Product version to install [Default: ${PRODUCT_VERSION}]"
    echo "  [--download-only] Download all the installation files to the same location as this script"
+   echo "  [--os-package] Select OS package to download, Force download only [redhat|ubuntu] (default: machine OS)"
    echo "  [--download-dashboard] Skip the installation of K8S infra charts layer"
    echo "  [--base-url] Base URL for downloading the installation files [Default: https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
    echo "  [--auto-install-product] Automatic installation of a product"
@@ -235,6 +236,13 @@ while test $# -gt 0; do
         shift
             NVIDIA_DRIVER_REPO_VERSION=${1:-$NVIDIA_DRIVER_REPO_VERSION}
         shift
+        continue
+        ;;
+        --os-package)
+        shift
+            OS_PACKAGE=${1:-$OS_PACKAGE}
+        shift
+            DOWNLOAD_ONLY="true"
         continue
         ;;
     esac
@@ -390,14 +398,14 @@ function download_files() {
   fi
 
   if [ ${SKIP_DRIVERS} == "false" ]; then
-    if [ -x "$(command -v apt-get)" ]; then
+    if [[ "${OS_PACKAGE}" == "ubuntu" ]] || [[ -x "$(command -v apt-get)" && -z "${OS_PACKAGE}" ]]; then
       if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
         PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
         PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_MD5_URL}")
       else
         PACKAGES+=("${APT_REPO_FILE_URL}")
       fi
-    elif [ -x "$(command -v yum)" ]; then
+    elif [[ "${OS_PACKAGE}" == "redhat" ]] || [[ -x "$(command -v yum)" && -z "${OS_PACKAGE}" ]]; then
       if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
         PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_URL}")
         PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_MD5_URL}")
