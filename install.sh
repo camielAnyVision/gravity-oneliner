@@ -92,6 +92,7 @@ function showhelp {
    echo "  [--skip-k8s-base] Skip Kubernetes/Gravity base installation"
    echo "  [--skip-k8s-infra] Skip infrastructure layer installation"
    echo "  [--skip-product] Skip product/application installation"
+   echo "  [--os-package] Select OS package to download for download-only option [redhat|ubuntu] (default is local machine OS)"
    echo ""
 }
 
@@ -202,6 +203,12 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --os-package)
+        shift
+            OS_PACKAGE=${1:-$OS_PACKAGE}
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -292,13 +299,13 @@ function download_files() {
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${K8S_PRODUCT_MD5_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT_URL}")
 
-  if [ -x "$(command -v apt-get)" ]; then
+  if [ "${OS_PACKAGE}" == "ubuntu" ] || [-x "$(command -v apt-get)" && -z ${OS_PACKAGE}  ]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
     else
       PACKAGES+=("${APT_REPO_FILE_URL}")
     fi
-  elif [ -x "$(command -v yum)" ]; then
+  elif [ "${OS_PACKAGE}" == "redhat" ] || [-x "$(command -v yum)" && -z ${OS_PACKAGE}  ]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_URL}")
     else
