@@ -3,7 +3,7 @@ set -e
 set -o pipefail
 
 # script version
-SCRIPT_VERSION="1.24.0-23"
+SCRIPT_VERSION="1.24.0-25"
 
 # Absolute path to this script
 SCRIPT=$(readlink -f "$0")
@@ -18,17 +18,21 @@ S3_BUCKET_URL="https://gravity-bundles.s3.eu-central-1.amazonaws.com"
 # Gravity options
 K8S_BASE_NAME="anv-base-k8s"
 K8S_BASE_VERSION="1.0.13"
+K8S_BASE_REPO_VERSION="${K8S_BASE_VERSION}"
 
 K8S_INFRA_NAME="k8s-infra"
 K8S_INFRA_VERSION="1.0.11"
+K8S_INFRA_REPO_VERSION="${K8S_INFRA_VERSION}"
 
 PRODUCT_NAME="bettertomorrow"
 PRODUCT_VERSION="1.24.0-25"
+PRODUCT_REPO_VERSION="${PRODUCT_VERSION}"
 
 # NVIDIA driver options
 NVIDIA_DRIVER_METHOD="container"
 NVIDIA_DRIVER_VERSION="410-104"
-NVIDIA_DRIVER_PACKAGE_VERSION="1.0.0"
+NVIDIA_DRIVER_PACKAGE_VERSION="1.0.1"
+NVIDIA_DRIVER_REPO_VERSION="${NVIDIA_DRIVER_PACKAGE_VERSION}"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
@@ -43,6 +47,7 @@ SKIP_K8S_BASE="false"
 SKIP_K8S_INFRA="false"
 SKIP_PRODUCT="false"
 SKIP_DRIVERS="false"
+SKIP_MD5_CHECK="false"
 DOWNLOAD_ONLY="false"
 SKIP_CLUSTER_CHECK="false"
 MIGRATION_EXIST="false"
@@ -77,21 +82,22 @@ function showhelp {
    echo "  [-r|--node-role] Current node role [aio|backend|edge] (default: aio)"
    echo "  [-m|--install-method] Installation method [online|airgap] (default: online)"
    echo "  [-p|--product-name] Product name to install"
-   echo "  [-v|--product-version] Product version to install (default: ${PRODUCT_VERSION})"
-   echo "  [--download-only] Download all the required installation files (to ${BASEDIR})"
-   echo "  [--download-dashboard] Download product dashboard (to ${BASEDIR})"
-   echo "  [--base-url] Base URL for downloading the installation files (default: https://gravity-bundles.s3.eu-central-1.amazonaws.com)"
-   echo "  [--auto-install-product] Auto deploy application after installation (from Rancher catalog)"
-   echo "  [--add-migration-chart] Auto deploy migration after installation (from Rancher catalog)"
-   echo "  [--k8s-base-version] Kubernetes/Gravity base version (default: ${K8S_BASE_VERSION})"
-   echo "  [--k8s-infra-version] Infrastructure layer version (default: ${K8S_INFRA_VERSION})"
-   echo "  [--driver-method] Nvidia driver installation method [host|container] (default: ${NVIDIA_DRIVER_METHOD})"
-   echo "  [--driver-version] Nvidia driver version (requires --driver-method=container) [410-104|418-113] (default: ${NVIDIA_DRIVER_VERSION})"   
-   echo "  [--skip-cluster-check] Skip existing cluster check"
-   echo "  [--skip-drivers] Skip Nvidia drivers installation"
-   echo "  [--skip-k8s-base] Skip Kubernetes/Gravity base installation"
-   echo "  [--skip-k8s-infra] Skip infrastructure layer installation"
-   echo "  [--skip-product] Skip product/application installation"
+   echo "  [-v|--product-version] Product version to install [Default: ${PRODUCT_VERSION}]"
+   echo "  [--download-only] Download all the installation files to the same location as this script"
+   echo "  [--download-dashboard] Skip the installation of K8S infra charts layer"
+   echo "  [--base-url] Base URL for downloading the installation files [Default: https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
+   echo "  [--auto-install-product] Automatic installation of a product"
+   echo "  [--add-migration-chart] Install also the migration chart"
+   echo "  [--k8s-base-version] K8S base image version [Default: ${K8S_BASE_VERSION}]"
+   echo "  [--k8s-infra-version] K8S infra image [Default:${K8S_INFRA_VERSION}]"
+   echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: ${NVIDIA_DRIVER_METHOD}]"
+   echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [410-104, 418-113. Default: ${NVIDIA_DRIVER_VERSION}]"   
+   echo "  [--skip-cluster-check] Skip cluster checks (preflight) if the cluster is already installed"
+   echo "  [--skip-md5-check] Skip md5 checksum"
+   echo "  [--skip-k8s-base] Skip the installation of K8S base layer"
+   echo "  [--skip-k8s-infra] Skip the installation of K8S infra charts layer"
+   echo "  [--skip-drivers] Skip the installation of Nvidia drivers"
+   echo "  [--skip-product] Skip the installation of product"
    echo ""
 }
 
@@ -180,6 +186,11 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --skip-md5-check)
+            SKIP_MD5_CHECK="true"
+        shift
+        continue
+        ;;        
         --add-migration-chart)
             MIGRATION_EXIST="true"
         shift
@@ -202,6 +213,30 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --k8s-base-repo-version)
+        shift
+            K8S_BASE_REPO_VERSION=${1:-$K8S_BASE_REPO_VERSION}
+        shift
+        continue
+        ;;
+        --k8s-infra-repo-version)
+        shift
+            K8S_INFRA_REPO_VERSION=${1:-$K8S_INFRA_REPO_VERSION}
+        shift
+        continue
+        ;;
+        --product-repo-version)
+        shift
+            PRODUCT_REPO_VERSION=${1:-$PRODUCT_REPO_VERSION}
+        shift
+        continue
+        ;;
+        --nvidia-driver-repo-version)
+        shift
+            NVIDIA_DRIVER_REPO_VERSION=${1:-$NVIDIA_DRIVER_REPO_VERSION}
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -210,8 +245,10 @@ done
 PRODUCT_MIGRATION_NAME="migration-workflow-${PRODUCT_NAME}"
 RHEL_PACKAGES_FILE_URL="${S3_BUCKET_URL}/repos/${RHEL_PACKAGES_FILE_NAME}"
 APT_REPO_FILE_URL="${S3_BUCKET_URL}/repos/${APT_REPO_FILE_NAME}"
-UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/development/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu1804-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
-RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/development/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
+UBUNTU_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/${NVIDIA_DRIVER_REPO_VERSION}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu1804-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
+UBUNTU_NVIDIA_DRIVER_CONTAINER_MD5_URL="${S3_BUCKET_URL}/nvidia-driver/${NVIDIA_DRIVER_REPO_VERSION}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-ubuntu1804-${NVIDIA_DRIVER_PACKAGE_VERSION}.md5"
+RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/${NVIDIA_DRIVER_REPO_VERSION}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
+RHEL_NVIDIA_DRIVER_CONTAINER_MD5_URL="${S3_BUCKET_URL}/nvidia-driver/${NVIDIA_DRIVER_REPO_VERSION}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7-${NVIDIA_DRIVER_PACKAGE_VERSION}.md5"
 UBUNTU_NVIDIA_DRIVER_CONTAINER_FILE="${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 RHEL_NVIDIA_DRIVER_CONTAINER_FILE="${RHEL_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 
@@ -233,10 +270,26 @@ function is_kubectl_exists() {
 }
 
 function is_tar_files_exists(){
-  declare -a TAR_FILES_LIST=("${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar" "${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" "yq")
+
+  echo "" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "==                Verifying Packages, please wait...               ==" | tee -a ${LOG_FILE}
+  echo "=====================================================================" | tee -a ${LOG_FILE}
+  echo "" | tee -a ${LOG_FILE}
+
+  declare -a TAR_FILES_LIST=( "yq")
+  if [ "${SKIP_K8S_BASE}" == "false" ]; then
+    TAR_FILES_LIST+=("${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar")
+  fi
+
+  if [ "${SKIP_K8S_INFRA}" == "false" ]; then
+    TAR_FILES_LIST+=("${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz")
+  fi
+
   if [ "${SKIP_PRODUCT}" == "false" ]; then
     TAR_FILES_LIST+=("${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz")
   fi
+
   if [ "${SKIP_DRIVERS}" == "false" ]; then
     if [ -x "$(command -v apt-get)" ]; then
       if [ "${INSTALL_METHOD}" == "airgap" ] && [ "${NVIDIA_DRIVER_METHOD}" == "host" ]; then
@@ -254,15 +307,35 @@ function is_tar_files_exists(){
       fi
     fi
   fi
+  
   for file in "${TAR_FILES_LIST[@]}"; do
       if [[ ! -f "${BASEDIR}/${file}" ]] ; then
           echo "Error: required file ${file} is missing." | tee -a ${LOG_FILE}
           exit 1
+      else
+        if [[ "${file}" == *'.tar'* ]]; then
+          md5_checker "${file}"
+        fi
       fi
   done
 }
 
 function join_by() { local IFS="$1"; shift; echo "$*"; }
+
+function md5_checker() {
+  FILE_NAME="${1}"
+  if [ -f "${BASEDIR}/${FILE_NAME}" ] && [ -f "${BASEDIR}/${FILE_NAME%.tar*}.md5" ]; then
+    FILE_NAME_MD5=($(md5sum ${BASEDIR}/${FILE_NAME}))
+    echo "#### Perform md5 checksum to ${BASEDIR}/${FILE_NAME}" | tee -a ${LOG_FILE}
+    if [ "${FILE_NAME_MD5}" != "$(cat ${BASEDIR}/${FILE_NAME%.tar*}.md5)" ]; then
+      echo "Error: ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz checksum does not match, The file wasn't fully downloaded or may corrupted" | tee -a ${LOG_FILE}
+      exit 1
+    fi
+  else
+    echo "Error: required file ${BASEDIR}/${FILE_NAME} or ${BASEDIR}/${FILE_NAME%.tar*}.md5 is missing." | tee -a ${LOG_FILE}
+    exit 1
+  fi
+}
 
 function download_files() {
   echo "" | tee -a ${LOG_FILE}
@@ -271,11 +344,14 @@ function download_files() {
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}
 
-  K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/development/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
-  K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/development/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
-  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/development/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
-  K8S_PRODUCT_MD5_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/development/${PRODUCT_NAME}-${PRODUCT_VERSION}.md5"
-  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/development/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_BASE_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/${K8S_BASE_REPO_VERSION}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.tar"
+  K8S_BASE_MD5_URL="${S3_BUCKET_URL}/base-k8s/${K8S_BASE_NAME}/${K8S_BASE_REPO_VERSION}/${K8S_BASE_NAME}-${K8S_BASE_VERSION}.md5"
+  K8S_INFRA_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/${K8S_INFRA_REPO_VERSION}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz"
+  K8S_INFRA_MD5_URL="${S3_BUCKET_URL}/${K8S_INFRA_NAME}/${K8S_INFRA_REPO_VERSION}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.md5"
+  K8S_PRODUCT_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/${PRODUCT_REPO_VERSION}/${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_MD5_URL="${S3_BUCKET_URL}/products/${PRODUCT_NAME}/${PRODUCT_REPO_VERSION}/${PRODUCT_NAME}-${PRODUCT_VERSION}.md5"
+  K8S_PRODUCT_MIGRATION_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/${PRODUCT_REPO_VERSION}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
+  K8S_PRODUCT_MIGRATION_MD5_URL="${S3_BUCKET_URL}/products/${PRODUCT_MIGRATION_NAME}/${PRODUCT_REPO_VERSION}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz"
 
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
@@ -290,24 +366,43 @@ function download_files() {
   fi
 
   ## SHARED PACKAGES TO DOWNLOAD
-  declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${K8S_PRODUCT_MD5_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT_URL}")
+  declare -a PACKAGES=("${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT_URL}")
 
-  if [ -x "$(command -v apt-get)" ]; then
-    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
-      PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
-    else
-      PACKAGES+=("${APT_REPO_FILE_URL}")
-    fi
-  elif [ -x "$(command -v yum)" ]; then
-    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
-      PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_URL}")
-    else
-      PACKAGES+=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER_URL}")
+  if [ ${SKIP_K8S_BASE} == "false" ]; then
+    PACKAGES+=("${K8S_BASE_URL}")
+    PACKAGES+=("${K8S_BASE_MD5_URL}")
+  fi
+
+  if [ ${SKIP_K8S_INFRA} == "false" ]; then
+    PACKAGES+=("${K8S_INFRA_URL}")
+    PACKAGES+=("${K8S_INFRA_MD5_URL}")
+  fi
+
+  if [ ${SKIP_PRODUCT} == "false" ]; then
+    PACKAGES+=("${K8S_PRODUCT_URL}")
+    PACKAGES+=("${K8S_PRODUCT_MD5_URL}")
+    if [ "${MIGRATION_EXIST}" == "true" ]; then
+      PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
+      PACKAGES+=("${K8S_PRODUCT_MIGRATION_MD5_URL}")
     fi
   fi
 
-  if [ "${MIGRATION_EXIST}" == "true" ]; then
-    PACKAGES+=("${K8S_PRODUCT_MIGRATION_URL}")
+  if [ ${SKIP_DRIVERS} == "false" ]; then
+    if [ -x "$(command -v apt-get)" ]; then
+      if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+        PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
+        PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_MD5_URL}")
+      else
+        PACKAGES+=("${APT_REPO_FILE_URL}")
+      fi
+    elif [ -x "$(command -v yum)" ]; then
+      if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+        PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_URL}")
+        PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_MD5_URL}")
+      else
+        PACKAGES+=("${RHEL_PACKAGES_FILE_URL}" "${RHEL_NVIDIA_DRIVER_URL}")
+      fi
+    fi
   fi
 
   if [ "${DASHBOARD_EXIST}" == "true" ]; then
@@ -315,16 +410,18 @@ function download_files() {
   fi
 
   # remove old script if exist before download
-  rm -f ${BASEDIR}/${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL##*/} ${BASEDIR}/${SCRIPT_URL##*/}
+  rm -f ${BASEDIR}/${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL##*/} ${BASEDIR}/${SCRIPT_URL##*/} ${BASEDIR}/*.md5
 
   declare -a PACKAGES_TO_DOWNLOAD
 
-  for url in "${PACKAGES[@]}"; do
-    filename=$(echo "${url##*/}")
-    if [ ! -f "${BASEDIR}/${filename}" ] || [ -f "${BASEDIR}/${filename}.aria2" ]; then
-      PACKAGES_TO_DOWNLOAD+=("${url}")
-    fi
-  done
+  if [ ${SKIP_MD5_CHECK} == "false" ]; then
+    for url in "${PACKAGES[@]}"; do
+      filename=$(echo "${url##*/}")
+      if [ ! -f "${BASEDIR}/${filename}" ] || [ -f "${BASEDIR}/${filename}.aria2" ]; then
+        PACKAGES_TO_DOWNLOAD+=("${url}")
+      fi
+    done
+  fi
 
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
@@ -335,12 +432,13 @@ function download_files() {
     echo "#### All the packages are already exist under ${BASEDIR}" | tee -a ${LOG_FILE}
   fi
 
-  echo "#### Perform checksum verification ..."  | tee -a ${LOG_FILE}
-  if [ "$(md5sum ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz)" == "$(cat ${PRODUCT_NAME}-${PRODUCT_VERSION}.md5)  ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz" ]; then
-    echo "${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz was fully downloaded, checksum verified" | tee -a ${LOG_FILE}
-  else
-    echo "${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz wasn't fully downloaded and corrupted, checksum does not match" | tee -a ${LOG_FILE}
-  fi
+  # check md5
+  for url in "${PACKAGES[@]}"; do
+    file=$(echo "${url##*/}")
+    if [[ "${file}" == *'.tar'* ]]; then
+      md5_checker "${file}"
+    fi
+  done
 
   ## RENAME DOWNLOADED YQ
   if [ -f yq_linux_amd64 ]; then
@@ -541,6 +639,8 @@ function install_k8s_infra_app() {
   echo "" | tee -a ${LOG_FILE}  
   if [[ "${SKIP_K8S_INFRA}" == "false" ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
     install_gravity_app "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" --env=rancher=true
+  else
+    echo "### Skipping installing infra charts .." | tee -a ${LOG_FILE}
   fi
 }
 
@@ -555,6 +655,8 @@ function install_product_app() {
     if [ "$MIGRATION_EXIST" == "true" ] && [ -f "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" ] ; then
       install_gravity_app "${BASEDIR}/${PRODUCT_MIGRATION_NAME}-${PRODUCT_VERSION}.tar.gz" --env=install_product=false
     fi
+  else
+    echo "### Skipping installing product charts .." | tee -a ${LOG_FILE}
   fi
 }
 
@@ -602,7 +704,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
     exit 0
   fi
   is_kubectl_exists
-  is_tar_files_exists
+  #is_tar_files_exists
   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
   install_gravity
   #create_admin
