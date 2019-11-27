@@ -295,17 +295,17 @@ function download_files() {
   elif [ "${PRODUCT_NAME}" == "facesearch" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facesearch-dashboard/1.24.0/FaceSearch-1.24.0-linux-x86_64.AppImage"
   fi
-
+ 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${K8S_PRODUCT_MD5_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT_URL}")
 
-  if [ "${OS_PACKAGE}" == "ubuntu" ] || [-x "$(command -v apt-get)" && -z ${OS_PACKAGE}  ]; then
+  if [[ "${OS_PACKAGE}" == "ubuntu" ]] || [[ -x "$(command -v apt-get)" && -z "${OS_PACKAGE}" ]]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
     else
       PACKAGES+=("${APT_REPO_FILE_URL}")
     fi
-  elif [ "${OS_PACKAGE}" == "redhat" ] || [-x "$(command -v yum)" && -z ${OS_PACKAGE}  ]; then
+  elif [[ "${OS_PACKAGE}" == "redhat" ]] || [[ -x "$(command -v yum)" && -z "${OS_PACKAGE}" ]]; then
     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
       PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_URL}")
     else
