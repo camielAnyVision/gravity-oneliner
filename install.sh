@@ -374,7 +374,7 @@ function download_files() {
   elif [ "${PRODUCT_NAME}" == "facesearch" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facesearch-dashboard/1.24.0/FaceSearch-1.24.0-linux-x86_64.AppImage"
   fi
-
+ 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT_URL}")
 
