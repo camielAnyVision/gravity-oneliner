@@ -313,8 +313,10 @@ function is_tar_files_exists(){
           echo "Error: required file ${file} is missing." | tee -a ${LOG_FILE}
           exit 1
       else
-        if [[ "${file}" == *'.tar'* ]]; then
-          md5_checker "${file}"
+        if [ ${SKIP_MD5_CHECK} == "false" ]; then
+          if [[ "${file}" == *'.tar'* ]]; then
+            md5_checker "${file}"
+          fi
         fi
       fi
   done
@@ -414,14 +416,12 @@ function download_files() {
 
   declare -a PACKAGES_TO_DOWNLOAD
 
-  if [ ${SKIP_MD5_CHECK} == "false" ]; then
-    for url in "${PACKAGES[@]}"; do
-      filename=$(echo "${url##*/}")
-      if [ ! -f "${BASEDIR}/${filename}" ] || [ -f "${BASEDIR}/${filename}.aria2" ]; then
-        PACKAGES_TO_DOWNLOAD+=("${url}")
-      fi
-    done
-  fi
+  for url in "${PACKAGES[@]}"; do
+    filename=$(echo "${url##*/}")
+    if [ ! -f "${BASEDIR}/${filename}" ] || [ -f "${BASEDIR}/${filename}.aria2" ]; then
+      PACKAGES_TO_DOWNLOAD+=("${url}")
+    fi
+  done
 
   DOWNLOAD_LIST=$(join_by " " "${PACKAGES_TO_DOWNLOAD[@]}")
   if [ "${DOWNLOAD_LIST}" ]; then
@@ -433,12 +433,14 @@ function download_files() {
   fi
 
   # check md5
-  for url in "${PACKAGES[@]}"; do
-    file=$(echo "${url##*/}")
-    if [[ "${file}" == *'.tar'* ]]; then
-      md5_checker "${file}"
-    fi
-  done
+  if [ ${SKIP_MD5_CHECK} == "false" ]; then
+    for url in "${PACKAGES[@]}"; do
+      file=$(echo "${url##*/}")
+      if [[ "${file}" == *'.tar'* ]]; then
+        md5_checker "${file}"
+      fi
+    done
+  fi
 
   ## RENAME DOWNLOADED YQ
   if [ -f yq_linux_amd64 ]; then
