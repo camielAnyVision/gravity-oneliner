@@ -667,7 +667,7 @@ function restore_secrets() {
     echo "==                Restoring k8s Secrets...                         ==" | tee -a ${LOG_FILE}
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
-    declare -a relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret")
+    declare -a relevant_secrets_list=("redis-secret" "mongodb-secret" "rabbitmq-secret" "ingress-basic-auth-secret" "memsql-secret")
     for secret in "${relevant_secrets_list[@]}"
     do
       if [ -f "/opt/backup/secrets/${secret}.yaml" ]; then
