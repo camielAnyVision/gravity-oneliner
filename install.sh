@@ -3,7 +3,7 @@ set -e
 set -o pipefail
 
 # script version
-SCRIPT_VERSION="1.24.0-25"
+SCRIPT_VERSION="1.24.0-26"
 
 # Absolute path to this script
 SCRIPT=$(readlink -f "$0")
@@ -25,7 +25,7 @@ K8S_INFRA_VERSION="1.0.11"
 K8S_INFRA_REPO_VERSION="${K8S_INFRA_VERSION}"
 
 PRODUCT_NAME="bettertomorrow"
-PRODUCT_VERSION="1.24.0-25"
+PRODUCT_VERSION="1.24.0-26"
 PRODUCT_REPO_VERSION="${PRODUCT_VERSION}"
 
 # NVIDIA driver options
@@ -84,6 +84,7 @@ function showhelp {
    echo "  [-p|--product-name] Product name to install"
    echo "  [-v|--product-version] Product version to install [Default: ${PRODUCT_VERSION}]"
    echo "  [--download-only] Download all the installation files to the same location as this script"
+   echo "  [--os-package] Select OS package to download, Force download only [redhat|ubuntu] (default: machine OS)"
    echo "  [--download-dashboard] Skip the installation of K8S infra charts layer"
    echo "  [--base-url] Base URL for downloading the installation files [Default: https://gravity-bundles.s3.eu-central-1.amazonaws.com]"
    echo "  [--auto-install-product] Automatic installation of a product"
@@ -237,6 +238,13 @@ while test $# -gt 0; do
         shift
         continue
         ;;
+        --os-package)
+        shift
+            OS_PACKAGE=${1:-$OS_PACKAGE}
+        shift
+            DOWNLOAD_ONLY="true"
+        continue
+        ;;
     esac
     break
 done
@@ -330,7 +338,7 @@ function md5_checker() {
     FILE_NAME_MD5=($(md5sum ${BASEDIR}/${FILE_NAME}))
     echo "#### Perform md5 checksum to ${BASEDIR}/${FILE_NAME}" | tee -a ${LOG_FILE}
     if [ "${FILE_NAME_MD5}" != "$(cat ${BASEDIR}/${FILE_NAME%.tar*}.md5)" ]; then
-      echo "Error: ${PRODUCT_NAME}-${PRODUCT_VERSION}.tar.gz checksum does not match, The file wasn't fully downloaded or may corrupted" | tee -a ${LOG_FILE}
+      echo "Error: ${FILE_NAME} checksum does not match, The file wasn't fully downloaded or may corrupted" | tee -a ${LOG_FILE}
       exit 1
     fi
   else
@@ -366,7 +374,7 @@ function download_files() {
   elif [ "${PRODUCT_NAME}" == "facesearch" ]; then
     DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/facesearch-dashboard/1.24.0/FaceSearch-1.24.0-linux-x86_64.AppImage"
   fi
-
+ 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT_URL}")
 
@@ -390,14 +398,14 @@ function download_files() {
   fi
 
   if [ ${SKIP_DRIVERS} == "false" ]; then
-    if [ -x "$(command -v apt-get)" ]; then
+    if [[ "${OS_PACKAGE}" == "ubuntu" ]] || [[ -x "$(command -v apt-get)" && -z "${OS_PACKAGE}" ]]; then
       if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
         PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL}")
         PACKAGES+=("${UBUNTU_NVIDIA_DRIVER_CONTAINER_MD5_URL}")
       else
         PACKAGES+=("${APT_REPO_FILE_URL}")
       fi
-    elif [ -x "$(command -v yum)" ]; then
+    elif [[ "${OS_PACKAGE}" == "redhat" ]] || [[ -x "$(command -v yum)" && -z "${OS_PACKAGE}" ]]; then
       if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
         PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_URL}")
         PACKAGES+=("${RHEL_NVIDIA_DRIVER_CONTAINER_MD5_URL}")
