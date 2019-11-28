@@ -792,53 +792,53 @@ cidr_check
 
 echo "Installing ${NODE_ROLE} node with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
 
-# if [[ "${INSTALL_METHOD}" == "online" ]]; then
-#   online_packages_installation
-#   download_files
-#   if [ "${DOWNLOAD_ONLY}" == "true" ]; then
-#     echo "#### Download only is enabled. will exit" | tee -a ${LOG_FILE}
-#     exit 0
-#   fi
-#   is_kubectl_exists
-#   #is_tar_files_exists
-#   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
-#   install_gravity
-#   #create_admin
-#   restore_secrets
-#   restore_sw_filer_data
-#   install_k8s_infra_app
-#   if [ "${SKIP_DRIVERS}" == "false" ]; then
-#     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
-#       nvidia_drivers_container_installation
-#     else
-#       nvidia_drivers_installation
-#     fi
-#   fi  
-#   install_product_app
-# else
-#   is_kubectl_exists
-#   is_tar_files_exists
-#   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
-#   install_gravity
-#   #create_admin
-#   restore_secrets
-#   restore_sw_filer_data
-#   install_k8s_infra_app
-#   if [ "${SKIP_DRIVERS}" == "false" ]; then
-#     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
-#       nvidia_drivers_container_installation
-#     else
-#       nvidia_drivers_installation
-#     fi
-#   fi
-#   install_product_app
-# fi
+if [[ "${INSTALL_METHOD}" == "online" ]]; then
+  online_packages_installation
+  download_files
+  if [ "${DOWNLOAD_ONLY}" == "true" ]; then
+    echo "#### Download only is enabled. will exit" | tee -a ${LOG_FILE}
+    exit 0
+  fi
+  is_kubectl_exists
+  #is_tar_files_exists
+  chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
+  install_gravity
+  #create_admin
+  restore_secrets
+  restore_sw_filer_data
+  install_k8s_infra_app
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
+    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+      nvidia_drivers_container_installation
+    else
+      nvidia_drivers_installation
+    fi
+  fi  
+  install_product_app
+else
+  is_kubectl_exists
+  is_tar_files_exists
+  chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
+  install_gravity
+  #create_admin
+  restore_secrets
+  restore_sw_filer_data
+  install_k8s_infra_app
+  if [ "${SKIP_DRIVERS}" == "false" ]; then
+    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+      nvidia_drivers_container_installation
+    else
+      nvidia_drivers_installation
+    fi
+  fi
+  install_product_app
+fi
 
 
-# echo "=============================================================================================" | tee -a ${LOG_FILE}
-# echo "                                    Installation Completed!                                  " | tee -a ${LOG_FILE}
-# echo "=============================================================================================" | tee -a ${LOG_FILE}
+echo "=============================================================================================" | tee -a ${LOG_FILE}
+echo "                                    Installation Completed!                                  " | tee -a ${LOG_FILE}
+echo "=============================================================================================" | tee -a ${LOG_FILE}
 
-# if [ ${nvidia_installed} ]; then
-#   echo "                  New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
-# fi
+if [ ${nvidia_installed} ]; then
+  echo "                  New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
+fi
