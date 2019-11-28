@@ -3,7 +3,7 @@ set -e
 set -o pipefail
 
 # script version
-SCRIPT_VERSION="1.24.0-26"
+SCRIPT_VERSION="1.24.0-27"
 
 # Absolute path to this script
 SCRIPT=$(readlink -f "$0")
@@ -52,6 +52,10 @@ DOWNLOAD_ONLY="false"
 SKIP_CLUSTER_CHECK="false"
 MIGRATION_EXIST="false"
 
+# Network options
+POD_NETWORK_CIDR="10.244.0.0/16"
+SERVICE_CIDR="10.172.0.0/16"
+
 echo "------ Staring Gravity installer $(date '+%Y-%m-%d %H:%M:%S')  ------" >${LOG_FILE} 2>&1
 
 ## Permissions check
@@ -91,6 +95,8 @@ function showhelp {
    echo "  [--add-migration-chart] Install also the migration chart"
    echo "  [--k8s-base-version] K8S base image version [Default: ${K8S_BASE_VERSION}]"
    echo "  [--k8s-infra-version] K8S infra image [Default:${K8S_INFRA_VERSION}]"
+   echo "  [--pod-network-cidr] Config pod network CIDR [Default: ${POD_NETWORK_CIDR}]"
+   echo "  [--service-cidr] Config service CIDR [Default: ${SERVICE_CIDR}]"
    echo "  [--driver-method] NVIDIA driver installation method [host, container. Default: ${NVIDIA_DRIVER_METHOD}]"
    echo "  [--driver-version] NVIDIA driver version (requires --driver-method=container) [410-104, 418-113. Default: ${NVIDIA_DRIVER_VERSION}]"   
    echo "  [--skip-cluster-check] Skip cluster checks (preflight) if the cluster is already installed"
@@ -245,6 +251,18 @@ while test $# -gt 0; do
             DOWNLOAD_ONLY="true"
         continue
         ;;
+        --pod-network-cidr)
+        shift
+            POD_NETWORK_CIDR=${1:-$POD_NETWORK_CIDR}
+        shift
+        continue
+        ;;
+        --service-cidr)
+        shift
+            SERVICE_CIDR=${1:-$SERVICE_CIDR}
+        shift
+        continue
+        ;;
     esac
     break
 done
@@ -259,6 +277,71 @@ RHEL_NVIDIA_DRIVER_CONTAINER_URL="${S3_BUCKET_URL}/nvidia-driver/${NVIDIA_DRIVER
 RHEL_NVIDIA_DRIVER_CONTAINER_MD5_URL="${S3_BUCKET_URL}/nvidia-driver/${NVIDIA_DRIVER_REPO_VERSION}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-rhel7-${NVIDIA_DRIVER_PACKAGE_VERSION}.md5"
 UBUNTU_NVIDIA_DRIVER_CONTAINER_FILE="${UBUNTU_NVIDIA_DRIVER_CONTAINER_URL##*/}"
 RHEL_NVIDIA_DRIVER_CONTAINER_FILE="${RHEL_NVIDIA_DRIVER_CONTAINER_URL##*/}"
+
+function cidr_overlap() (
+  #check local cidr - This function was copied from the internet!
+  subnet1="$1"
+  subnet2="$2"
+  
+  # calculate min and max of subnet1
+  # calculate min and max of subnet2
+  # find the common range (check_overlap)
+  # print it if there is one
+
+  read_range () {
+    IFS=/ read ip mask <<<"$1"
+    IFS=. read -a octets <<< "$ip";
+    set -- "${octets[@]}";
+    min_ip=$(($1*256*256*256 + $2*256*256 + $3*256 + $4));
+    host=$((32-mask))
+    max_ip=$(($min_ip+(2**host)-1))
+    printf "%d-%d\n" "$min_ip" "$max_ip"
+  }
+
+  check_overlap () {
+    IFS=- read min1 max1 <<<"$1";
+    IFS=- read min2 max2 <<<"$2";
+    if [ "$max1" -lt "$min2" ] || [ "$max2" -lt "$min1" ]; then return; fi
+    [ "$max1" -ge "$max2" ] && max="$max2" ||   max="$max1"
+    [ "$min1" -le "$min2" ] && min="$min2" || min="$min1"
+    printf "%s-%s\n" "$(to_octets $min)" "$(to_octets $max)"
+  }
+
+  to_octets () {
+    first=$(($1>>24))
+    second=$((($1&(256*256*255))>>16))
+    third=$((($1&(256*255))>>8))
+    fourth=$(($1&255))
+    printf "%d.%d.%d.%d\n" "$first" "$second" "$third" "$fourth" 
+  }
+
+  range1="$(read_range $subnet1)"
+  range2="$(read_range $subnet2)"
+  overlap="$(check_overlap $range1 $range2)"
+  [ -n "$overlap" ] && echo "Overlap $overlap of $subnet1 and $subnet2"
+
+  # if cidr equal to install parameters exit 1 + echo notice to user
+)
+
+function cidr_check() {
+  CIDR_LIST=$(ip route | cut -d' ' -f1)
+  # This function cheks if there is CIDR overlap with local network and terminates install if true
+  # echo ${CIDR_LIST}
+  for network in $CIDR_LIST; do
+    if [[ $network != "default" ]]; then
+        if [[ $( cidr_overlap ${POD_NETWORK_CIDR} ${network}) ]]; then
+          echo "Pods network CIDR Exist in network environment!!! Install terminated - nothing was done."
+          echo "To run with custom CIDR use --pod-network-cidr"
+          exit 1
+        fi
+        if [[ $( cidr_overlap ${SERVICE_CIDR} ${network}) ]]; then
+          echo "Service CIDR Exist in network environment!!! Install terminated - nothing was done."
+          echo "To run with custom CIDR use --service-cidr"
+          exit 1
+        fi
+    fi
+  done
+}
 
 function is_kubectl_exists() {
   if [ "${SKIP_CLUSTER_CHECK}" == "false" ]; then
@@ -603,8 +686,8 @@ function install_gravity() {
     cd ${BASEDIR}/${DIR_K8S_BASE}
     ${BASEDIR}/${DIR_K8S_BASE}/gravity install \
         --cloud-provider=generic \
-        --pod-network-cidr="10.244.0.0/16" \
-        --service-cidr="10.172.0.0/16" \
+        --pod-network-cidr=${POD_NETWORK_CIDR} \
+        --service-cidr=${SERVICE_CIDR} \
         --service-uid=5000 \
         --vxlan-port=8472 \
         --cluster=cluster.local \
@@ -704,55 +787,58 @@ function restore_sw_filer_data() {
   fi
 }
 
+echo "Checking server environment before installing"
+cidr_check
+
 echo "Installing ${NODE_ROLE} node with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
 
-if [[ "${INSTALL_METHOD}" == "online" ]]; then
-  online_packages_installation
-  download_files
-  if [ "${DOWNLOAD_ONLY}" == "true" ]; then
-    echo "#### Download only is enabled. will exit" | tee -a ${LOG_FILE}
-    exit 0
-  fi
-  is_kubectl_exists
-  #is_tar_files_exists
-  chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
-  install_gravity
-  #create_admin
-  restore_secrets
-  restore_sw_filer_data
-  install_k8s_infra_app
-  if [ "${SKIP_DRIVERS}" == "false" ]; then
-    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
-      nvidia_drivers_container_installation
-    else
-      nvidia_drivers_installation
-    fi
-  fi  
-  install_product_app
-else
-  is_kubectl_exists
-  is_tar_files_exists
-  chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
-  install_gravity
-  #create_admin
-  restore_secrets
-  restore_sw_filer_data
-  install_k8s_infra_app
-  if [ "${SKIP_DRIVERS}" == "false" ]; then
-    if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
-      nvidia_drivers_container_installation
-    else
-      nvidia_drivers_installation
-    fi
-  fi
-  install_product_app
-fi
+# if [[ "${INSTALL_METHOD}" == "online" ]]; then
+#   online_packages_installation
+#   download_files
+#   if [ "${DOWNLOAD_ONLY}" == "true" ]; then
+#     echo "#### Download only is enabled. will exit" | tee -a ${LOG_FILE}
+#     exit 0
+#   fi
+#   is_kubectl_exists
+#   #is_tar_files_exists
+#   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
+#   install_gravity
+#   #create_admin
+#   restore_secrets
+#   restore_sw_filer_data
+#   install_k8s_infra_app
+#   if [ "${SKIP_DRIVERS}" == "false" ]; then
+#     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+#       nvidia_drivers_container_installation
+#     else
+#       nvidia_drivers_installation
+#     fi
+#   fi  
+#   install_product_app
+# else
+#   is_kubectl_exists
+#   is_tar_files_exists
+#   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
+#   install_gravity
+#   #create_admin
+#   restore_secrets
+#   restore_sw_filer_data
+#   install_k8s_infra_app
+#   if [ "${SKIP_DRIVERS}" == "false" ]; then
+#     if [ "${NVIDIA_DRIVER_METHOD}" == "container" ]; then
+#       nvidia_drivers_container_installation
+#     else
+#       nvidia_drivers_installation
+#     fi
+#   fi
+#   install_product_app
+# fi
 
 
-echo "=============================================================================================" | tee -a ${LOG_FILE}
-echo "                                    Installation Completed!                                  " | tee -a ${LOG_FILE}
-echo "=============================================================================================" | tee -a ${LOG_FILE}
+# echo "=============================================================================================" | tee -a ${LOG_FILE}
+# echo "                                    Installation Completed!                                  " | tee -a ${LOG_FILE}
+# echo "=============================================================================================" | tee -a ${LOG_FILE}
 
-if [ ${nvidia_installed} ]; then
-  echo "                  New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
-fi
+# if [ ${nvidia_installed} ]; then
+#   echo "                  New nvidia driver has been installed, Reboot is required!               " | tee -a ${LOG_FILE}
+# fi
