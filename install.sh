@@ -51,6 +51,7 @@ SKIP_MD5_CHECK="false"
 DOWNLOAD_ONLY="false"
 SKIP_CLUSTER_CHECK="false"
 MIGRATION_EXIST="false"
+DEPLOYMENT_AVAILABILTY_TYPE="none"
 
 # Network options
 POD_NETWORK_CIDR="10.244.0.0/16"
@@ -87,6 +88,7 @@ function showhelp {
    echo "  [-m|--install-method] Installation method [online|airgap] (default: online)"
    echo "  [-p|--product-name] Product name to install"
    echo "  [-v|--product-version] Product version to install [Default: ${PRODUCT_VERSION}]"
+   echo "  [--deployment-type] Availability Deployment type [none|high-availability] (default: $DEPLOYMENT_AVAILABILTY_TYPE)"
    echo "  [--download-only] Download all the installation files to the same location as this script"
    echo "  [--os-package] Select OS package to download, Force download only [redhat|ubuntu] (default: machine OS)"
    echo "  [--download-dashboard] Skip the installation of K8S infra charts layer"
@@ -260,6 +262,11 @@ while test $# -gt 0; do
         --service-cidr)
         shift
             SERVICE_CIDR=${1:-$SERVICE_CIDR}
+        shift
+        continue
+        ;;
+        --deployment-type)
+            DEPLOYMENT_AVAILABILTY_TYPE=${none:-$EPLOYMENT_AVAILABILTY_TYPE}
         shift
         continue
         ;;
@@ -731,10 +738,15 @@ function install_k8s_infra_app() {
   echo "=====================================================================" | tee -a ${LOG_FILE}
   echo "" | tee -a ${LOG_FILE}  
   if [[ "${SKIP_K8S_INFRA}" == "false" ]] && [[ -f "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" ]]; then
-    install_gravity_app "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" --env=rancher=true
+     if [ "${DEPLOYMENT_AVAILABILTY_TYPE}" == "none" ]; then
+        install_gravity_app "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" --env=rancher=true
+     elif [ "${DEPLOYMENT_AVAILABILTY_TYPE}" == "high-availabilty" ]; then
+        install_gravity_app "${BASEDIR}/${K8S_INFRA_NAME}-${K8S_INFRA_VERSION}.tar.gz" --env=rancher=true --env=ha=true 
+     fi
   else
-    echo "### Skipping installing infra charts .." | tee -a ${LOG_FILE}
+      echo "### Skipping installing infra charts .." | tee -a ${LOG_FILE}
   fi
+       
 }
 
 function install_product_app() {
