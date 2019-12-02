@@ -455,6 +455,9 @@ function download_files() {
 
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
+  JQ_URL="https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64"
+  CLEAN_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/clean.sh"
+  JOIN_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/join_node.sh"
   SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/install.sh"
 
   if [ "${PRODUCT_NAME}" == "bettertomorrow" ]; then
@@ -466,7 +469,7 @@ function download_files() {
   fi
  
   ## SHARED PACKAGES TO DOWNLOAD
-  declare -a PACKAGES=("${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT_URL}")
+  declare -a PACKAGES=("${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${JQ_URL}" "${SCRIPT_URL}" "${CLEAN_SCRIPT_URL}" "${JOIN_SCRIPT_URL}")
 
   if [ ${SKIP_K8S_BASE} == "false" ]; then
     PACKAGES+=("${K8S_BASE_URL}")
@@ -544,8 +547,12 @@ function download_files() {
   if [ -f yq_linux_amd64 ]; then
     cp -n yq_linux_amd64 yq
   fi
+  ## RENAME DOWNLOADED JQ
+  if [ -f jq-linux64 ]; then
+    cp -n jq-linux64 jq
+  fi
 
-  chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
+  chmod +x ${BASEDIR}/yq* ${BASEDIR}/jq* ${BASEDIR}/*.sh 
 }
 
 function online_packages_installation() {
