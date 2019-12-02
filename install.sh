@@ -503,7 +503,13 @@ function download_files() {
   fi
 
   # remove old script if exist before download
-  rm -f ${BASEDIR}/${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL##*/} ${BASEDIR}/${SCRIPT_URL##*/} ${BASEDIR}/*.md5
+  rm -f ${BASEDIR}/${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL##*/} ${BASEDIR}/${SCRIPT_URL##*/} 
+  
+  # remove old md5 files
+  for url in "${PACKAGES[@]}"; do
+    filename=$(echo "${url##*/}")
+    rm -f ${BASEDIR}/${filename%.tar*}.md5
+  done
 
   declare -a PACKAGES_TO_DOWNLOAD
 
