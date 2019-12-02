@@ -817,8 +817,23 @@ function developer_env_install() {
   for i in {1..5}; do rancher login ${RANCHER_SERVER_BASE} --token ${APITOKEN} --skip-verify > /dev/null 2>&1 && break || sleep 3; done
 
   ## Add our development helm catalog and refresh it
+  echo "" | tee -a ${LOG_FILE}
+  echo "Adding development catalog to rancher..." | tee -a ${LOG_FILE}
   rancher catalog add development http://dev-catalog.tls.ai > /dev/null
   rancher catalog refresh development --wait
+  if [ -f $HOME/.docker/config.json ] ; then
+    echo "Found config.json in your $HOME/.docker directory, using it to create imagepullsecret..." | tee -a ${LOG_FILE}
+    kubectl create secret generic imagepullsecret \
+    --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+    --type=kubernetes.io/dockerconfigjson >>${LOG_FILE} 2>&1
+  fi
+  echo "" | tee -a ${LOG_FILE}
+  echo "Downloading tilt binary." | tee -a ${LOG_FILE}
+  curl -fsSL https://raw.githubusercontent.com/windmilleng/tilt/master/scripts/install.sh | bash 
+  echo "" | tee -a ${LOG_FILE}
+  echo "Cloning tilt git repo to /tmp/tilt" | tee -a ${LOG_FILE}
+  git clone git@github.com:AnyVisionltd/tilt.git /tmp/tilt >>${LOG_FILE} 2>&1
+
 }
 
 echo "Installing ${NODE_ROLE} node with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
