@@ -787,9 +787,6 @@ function restore_sw_filer_data() {
   fi
 }
 
-echo "Checking server environment before installing"
-cidr_check
-
 echo "Installing ${NODE_ROLE} node with method ${INSTALL_METHOD}" | tee -a ${LOG_FILE}
 
 if [[ "${INSTALL_METHOD}" == "online" ]]; then
@@ -799,6 +796,8 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
     echo "#### Download only is enabled. will exit" | tee -a ${LOG_FILE}
     exit 0
   fi
+  echo "Checking server environment before installing"
+  cidr_check
   is_kubectl_exists
   #is_tar_files_exists
   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
@@ -816,6 +815,8 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   fi  
   install_product_app
 else
+  echo "Checking server environment before installing"
+  cidr_check
   is_kubectl_exists
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
