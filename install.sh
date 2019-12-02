@@ -28,7 +28,7 @@ PRODUCT_VERSION="1.24.0-rc.1"
 # NVIDIA driver options
 NVIDIA_DRIVER_METHOD="container"
 NVIDIA_DRIVER_VERSION="418-113"
-NVIDIA_DRIVER_PACKAGE_VERSION="1.0.0"
+NVIDIA_DRIVER_PACKAGE_VERSION="1.0.1"
 
 # UBUNTU Options
 APT_REPO_FILE_NAME="apt-repo-20190821.tar"
@@ -86,7 +86,7 @@ function showhelp {
    echo "  [--k8s-base-version] Kubernetes/Gravity base version (default: ${K8S_BASE_VERSION})"
    echo "  [--k8s-infra-version] Infrastructure layer version (default: ${K8S_INFRA_VERSION})"
    echo "  [--driver-method] Nvidia driver installation method [host|container] (default: ${NVIDIA_DRIVER_METHOD})"
-   echo "  [--driver-version] Nvidia driver version (requires --driver-method=container) [410-104|418-113] (default: ${NVIDIA_DRIVER_VERSION})"   
+   echo "  [--driver-version] Nvidia driver version (requires --driver-method=container) [410-104|418-113] (default: ${NVIDIA_DRIVER_VERSION})"
    echo "  [--skip-cluster-check] Skip existing cluster check"
    echo "  [--skip-drivers] Skip Nvidia drivers installation"
    echo "  [--skip-k8s-base] Skip Kubernetes/Gravity base installation"
@@ -279,7 +279,7 @@ function download_files() {
   GRAVITY_PACKAGE_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/gravity_package_installer.sh"
   YQ_URL="https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64"
   SCRIPT="https://raw.githubusercontent.com/AnyVisionltd/gravity-oneliner/${SCRIPT_VERSION}/install.sh"
-  DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/on-demand-sncf-1.24.0/de61538/AnyVision-1.24.0-linux-x86_64.AppImage"
+  DASHBOARD_URL="https://s3.eu-central-1.amazonaws.com/anyvision-dashboard/on-demand-sncf-1.24.0/8f10010/AnyVision-1.24.0-linux-x86_64.AppImage"
 
   ## SHARED PACKAGES TO DOWNLOAD
   declare -a PACKAGES=("${K8S_BASE_URL}" "${K8S_INFRA_URL}" "${K8S_PRODUCT_URL}" "${GRAVITY_PACKAGE_INSTALL_SCRIPT_URL}" "${YQ_URL}" "${SCRIPT}")
@@ -383,7 +383,7 @@ function nvidia_drivers_container_installation() {
   if [[ -f "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz" ]]; then
     install_gravity_app "${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz"
   else
-    echo "unable to find the file: ${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz" | tee -a ${LOG_FILE} 
+    echo "unable to find the file: ${BASEDIR}/nvidia-driver-${NVIDIA_DRIVER_VERSION}-${DISTRIBUTION}-${NVIDIA_DRIVER_PACKAGE_VERSION}.tar.gz" | tee -a ${LOG_FILE}
     exit 1
   fi
 }
@@ -483,7 +483,7 @@ function install_gravity() {
         --flavor=${NODE_ROLE} \
         --role=${NODE_ROLE} | tee -a ${LOG_FILE}
     cd ${BASEDIR}
-    
+
     create_admin
   fi
 }
@@ -585,7 +585,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
     else
       nvidia_drivers_installation
     fi
-  fi  
+  fi
   install_product_app
 else
   is_kubectl_exists
