@@ -678,6 +678,9 @@ function install_gravity() {
     echo "=====================================================================" | tee -a ${LOG_FILE}
     echo "" | tee -a ${LOG_FILE}
 
+    echo "### Checking server cidr before installing"
+    cidr_check
+
     echo "### Installting gravity k8s base: ${K8S_BASE_NAME}-${K8S_BASE_VERSION}"
     DIR_K8S_BASE="gravity-base-k8s"
     mkdir -p "${BASEDIR}/${DIR_K8S_BASE}"
@@ -795,9 +798,7 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   if [ "${DOWNLOAD_ONLY}" == "true" ]; then
     echo "#### Download only is enabled. will exit" | tee -a ${LOG_FILE}
     exit 0
-  fi
-  echo "Checking server environment before installing"
-  cidr_check
+  fi  
   is_kubectl_exists
   #is_tar_files_exists
   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
@@ -815,8 +816,6 @@ if [[ "${INSTALL_METHOD}" == "online" ]]; then
   fi  
   install_product_app
 else
-  echo "Checking server environment before installing"
-  cidr_check
   is_kubectl_exists
   is_tar_files_exists
   chmod +x ${BASEDIR}/yq* ${BASEDIR}/*.sh
