@@ -3,7 +3,7 @@
 echo "Getting Master Join Token"
 JOIN_TOKEN=$(gravity exec gravity status --token)
 echo "Getting Master IP Address"
-MASTER_IP=$(gravity exec gravity status --output=json | jq -r .cluster.nodes[0].advertise_ip)
+MASTER_IP=$(gravity exec gravity status --output=json | ./jq -r .cluster.nodes[0].advertise_ip)
 
 echo ""
 echo "RUN the following commands on the node as root to join node to cluster"
